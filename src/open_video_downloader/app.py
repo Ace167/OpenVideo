@@ -2,6 +2,7 @@
 
 import sys
 
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from open_video_downloader import __version__
@@ -24,6 +25,7 @@ def create_application(argv: list[str] | None = None) -> QApplication:
     app.setApplicationVersion(__version__)
     app.setOrganizationName(APP_ORGANIZATION)
     app.setWindowIcon(create_app_icon(64))
+    app.setFont(QFont("Segoe UI", 10))
     return app
 
 
@@ -50,8 +52,19 @@ def run_app(argv: list[str] | None = None) -> int:
 
     logger.info("OpenVideo Downloader gestart (data_dir='%s').", data_dir)
 
-    # 3. MainWindow initialization & display
-    window = MainWindow(settings_manager)
+    # 3. Database and Queue initialization
+    from open_video_downloader.core.queue_manager import QueueManager
+    from open_video_downloader.database.manager import DatabaseManager
+
+    db_manager = DatabaseManager(data_dir / "openvideo.db")
+    queue_manager = QueueManager(max_concurrent=settings_manager.get().max_concurrent_downloads)
+
+    # 4. MainWindow initialization & display
+    window = MainWindow(
+        settings_manager=settings_manager,
+        queue_manager=queue_manager,
+        database_manager=db_manager,
+    )
     window.show()
 
     return app.exec()

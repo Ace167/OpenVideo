@@ -2,11 +2,17 @@
 
 import os
 import sys
+from pathlib import Path
 
 import pytest
 
 # Ensure Qt runs offscreen in headless test runs
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+# Default OPENVIDEO_DATA_DIR to workspace temp directory for sandboxed test execution
+_test_data_dir = (Path(__file__).resolve().parent.parent / ".tmp" / "OpenVideoDownloader").resolve()
+_test_data_dir.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("OPENVIDEO_DATA_DIR", str(_test_data_dir))
 
 # On Windows in sandboxed test environments, Python 3.14 os.mkdir mode=0o700 strips DACL
 # permissions when pytest/tempfile creates temp dirs. Normalizing mkdir preserves permissions.

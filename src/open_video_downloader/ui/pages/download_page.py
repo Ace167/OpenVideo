@@ -1,7 +1,13 @@
-"""Download view allowing URL input and format selection placeholder."""
+"""Download view allowing URL input, format probing, and queue submission."""
 
-from PySide6.QtCore import Qt, Signal
+from pathlib import Path
+
+from PySide6.QtCore import QByteArray, Qt, QUrl, Signal
+from PySide6.QtGui import QPixmap
+from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (
+    QComboBox,
+    QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -11,20 +17,35 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from open_video_downloader.core.models import DownloadTask, FormatOption, MediaMetadata
+from open_video_downloader.engines.ffmpeg_probe import is_ffmpeg_available
+from open_video_downloader.engines.workers import MetadataWorker
+from open_video_downloader.engines.ytdl_adapter import is_valid_url
 from open_video_downloader.resources.icons import create_symbol_icon
+from open_video_downloader.services.logger import get_logger
+from open_video_downloader.settings.manager import SettingsManager
+
+logger = get_logger("ui.download_page")
 
 
 class DownloadPage(QWidget):
-    """Main view for probing media URLs and initiating downloads."""
+    """Primary interface for probing video metadata and configuring format choices."""
 
     fetch_requested = Signal(str)
+    task_created = Signal(object)  # DownloadTask
+    navigate_to_queue = Signal()
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, settings_manager: SettingsManager, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._settings_mgr = settings_manager
+        self._metadata_worker: MetadataWorker | None = None
+        self._current_metadata: MediaMetadata | None = None
+        self._net_manager = QNetworkAccessManager(self)
+        self._net_manager.finished.connect(self._on_thumbnail_downloaded)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(18)
+        layout.setSpacing(16)
 
         # 1. Header
         header_layout = QVBoxLayout()
@@ -34,23 +55,23 @@ class DownloadPage(QWidget):
         header_layout.addWidget(title)
 
         subtitle = QLabel(
-            "Voer een link in om beschikbare video- en audiokwaliteiten te bekijken.", self
+            "Voer een media-URL in om formaten op te halen en downloads te starten.", self
         )
         subtitle.setProperty("class", "pageSubtitle")
         header_layout.addWidget(subtitle)
         layout.addLayout(header_layout)
 
-        # 2. URL Input Card
+        # 2. Input Card
         input_card = QFrame(self)
         input_card.setProperty("class", "card")
         card_layout = QVBoxLayout(input_card)
-        card_layout.setSpacing(12)
+        card_layout.setSpacing(10)
 
         input_row = QHBoxLayout()
         input_row.setSpacing(10)
 
         self.url_input = QLineEdit(self)
-        self.url_input.setPlaceholderText("Plak een video- of afspeellijst-URL (bijv. https://...)")
+        self.url_input.setPlaceholderText("Plak een video- of audio-URL (bijv. https://...)")
         self.url_input.setClearButtonEnabled(True)
         self.url_input.returnPressed.connect(self._on_fetch_clicked)
         input_row.addWidget(self.url_input, stretch=1)
@@ -69,20 +90,20 @@ class DownloadPage(QWidget):
 
         card_layout.addLayout(input_row)
 
-        # Message / feedback label
+        # Status & Error Feedback
         self.status_msg = QLabel("", self)
-        self.status_msg.setStyleSheet("color: #e11d48; font-size: 12px; font-weight: 500;")
+        self.status_msg.setWordWrap(True)
         self.status_msg.setVisible(False)
         card_layout.addWidget(self.status_msg)
 
         layout.addWidget(input_card)
 
-        # 3. Content Area: Authentic Empty State for Phase 2
+        # 3. Authentic Empty State Card (Visible when no metadata loaded)
         self.empty_card = QFrame(self)
         self.empty_card.setProperty("class", "card")
         empty_layout = QVBoxLayout(self.empty_card)
         empty_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.setContentsMargins(32, 48, 32, 48)
+        empty_layout.setContentsMargins(32, 44, 32, 44)
         empty_layout.setSpacing(12)
 
         icon_label = QLabel(self)
@@ -96,8 +117,8 @@ class DownloadPage(QWidget):
         empty_layout.addWidget(empty_title)
 
         empty_desc = QLabel(
-            "Voer hierboven een geldige media-URL in om videogegevens, thumbnails,\n"
-            "beschikbare resoluties en audio-opties op te halen (actief in Fase 3).",
+            "Voer hierboven een geldige media-URL in en klik op 'Informatie ophalen'\n"
+            "om resoluties, kwaliteiten en audio-opties te selecteren.",
             self,
         )
         empty_desc.setProperty("class", "emptyStateText")
@@ -106,20 +127,263 @@ class DownloadPage(QWidget):
 
         layout.addWidget(self.empty_card, stretch=1)
 
+        # 4. Metadata Details Card (Hidden until metadata fetched)
+        self.meta_card = QFrame(self)
+        self.meta_card.setProperty("class", "card")
+        self.meta_card.setVisible(False)
+        meta_layout = QVBoxLayout(self.meta_card)
+        meta_layout.setSpacing(14)
+
+        # Media summary header (Thumbnail + Info)
+        media_header_layout = QHBoxLayout()
+        media_header_layout.setSpacing(16)
+
+        self.thumb_label = QLabel(self)
+        self.thumb_label.setFixedSize(140, 80)
+        self.thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.thumb_label.setStyleSheet("background-color: #0f172a; border-radius: 6px;")
+        self.thumb_label.setPixmap(create_symbol_icon("download", 32, "#64748b").pixmap(32, 32))
+        media_header_layout.addWidget(self.thumb_label)
+
+        info_vbox = QVBoxLayout()
+        info_vbox.setSpacing(4)
+
+        self.media_title_label = QLabel("Titel van de video", self)
+        self.media_title_label.setStyleSheet("font-size: 15px; font-weight: 700;")
+        self.media_title_label.setWordWrap(True)
+        info_vbox.addWidget(self.media_title_label)
+
+        self.media_meta_label = QLabel("Duur: --:-- • Bron: --", self)
+        self.media_meta_label.setStyleSheet("color: #64748b; font-size: 12px;")
+        info_vbox.addWidget(self.media_meta_label)
+        info_vbox.addStretch()
+
+        media_header_layout.addLayout(info_vbox, stretch=1)
+        meta_layout.addLayout(media_header_layout)
+
+        # Format selector row
+        format_vbox = QVBoxLayout()
+        format_vbox.setSpacing(6)
+        fmt_label = QLabel("Beschikbare formaten & kwaliteit:", self)
+        fmt_label.setStyleSheet("font-weight: 600;")
+        format_vbox.addWidget(fmt_label)
+
+        self.format_combo = QComboBox(self)
+        self.format_combo.currentIndexChanged.connect(self._on_format_changed)
+        format_vbox.addWidget(self.format_combo)
+
+        # FFmpeg warning banner
+        self.ffmpeg_warning = QLabel("", self)
+        self.ffmpeg_warning.setStyleSheet(
+            "background-color: #fef3c7; color: #92400e; padding: 6px 10px; "
+            "border-radius: 4px; font-size: 12px; font-weight: 500;"
+        )
+        self.ffmpeg_warning.setWordWrap(True)
+        self.ffmpeg_warning.setVisible(False)
+        format_vbox.addWidget(self.ffmpeg_warning)
+
+        meta_layout.addLayout(format_vbox)
+
+        # Download directory row
+        dir_vbox = QVBoxLayout()
+        dir_vbox.setSpacing(6)
+        dir_label = QLabel("Opslaan in:", self)
+        dir_label.setStyleSheet("font-weight: 600;")
+        dir_vbox.addWidget(dir_label)
+
+        dir_row = QHBoxLayout()
+        dir_row.setSpacing(10)
+        self.dest_dir_input = QLineEdit(self)
+        self.dest_dir_input.setText(self._settings_mgr.get().download_dir)
+        dir_row.addWidget(self.dest_dir_input, stretch=1)
+
+        self.browse_dir_btn = QPushButton("Bladeren...", self)
+        self.browse_dir_btn.setProperty("class", "btnSecondary")
+        self.browse_dir_btn.clicked.connect(self._on_browse_target_dir)
+        dir_row.addWidget(self.browse_dir_btn)
+        dir_vbox.addLayout(dir_row)
+
+        meta_layout.addLayout(dir_vbox)
+
+        # Action Buttons
+        action_row = QHBoxLayout()
+        action_row.setSpacing(12)
+
+        self.enqueue_btn = QPushButton("Download starten", self)
+        self.enqueue_btn.setProperty("class", "btnPrimary")
+        self.enqueue_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.enqueue_btn.clicked.connect(self._on_enqueue_clicked)
+        action_row.addWidget(self.enqueue_btn)
+
+        self.go_to_queue_btn = QPushButton("Bekijk wachtrij →", self)
+        self.go_to_queue_btn.setProperty("class", "btnSecondary")
+        self.go_to_queue_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.go_to_queue_btn.setVisible(False)
+        self.go_to_queue_btn.clicked.connect(lambda: self.navigate_to_queue.emit())
+        action_row.addWidget(self.go_to_queue_btn)
+
+        self.enqueue_feedback = QLabel("", self)
+        self.enqueue_feedback.setStyleSheet("color: #16a34a; font-weight: 600; font-size: 12px;")
+        action_row.addWidget(self.enqueue_feedback)
+
+        action_row.addStretch()
+        meta_layout.addLayout(action_row)
+
+        layout.addWidget(self.meta_card, stretch=1)
+
     def _on_fetch_clicked(self) -> None:
-        """Validate input and emit signal or prompt user."""
+        """Validate input URL and initiate background metadata extraction."""
         url = self.url_input.text().strip()
         if not url:
-            self.status_msg.setText(
-                "Voer eerst een geldige URL in alvorens informatie op te halen."
-            )
-            self.status_msg.setStyleSheet("color: #e11d48; font-size: 12px; font-weight: 500;")
-            self.status_msg.setVisible(True)
+            self._show_error("Voer eerst een geldige URL in.")
             return
 
-        self.status_msg.setText(
-            "URL gevalideerd. De downloadengine-adapter wordt geactiveerd in Fase 3."
-        )
+        if not is_valid_url(url):
+            self._show_error("De opgegeven URL heeft geen geldige HTTP- of HTTPS-indeling.")
+            return
+
+        # Prepare UI for loading
+        self.status_msg.setText("Informatie en formaten ophalen via engine...")
         self.status_msg.setStyleSheet("color: #0284c7; font-size: 12px; font-weight: 500;")
         self.status_msg.setVisible(True)
+        self.fetch_btn.setEnabled(False)
+        self.fetch_btn.setText("Laden...")
+        self.url_input.setEnabled(False)
+        self.enqueue_feedback.setText("")
+        self.go_to_queue_btn.setVisible(False)
+
+        # Cancel any previous worker
+        self._cancel_existing_worker()
+
+        # Start background worker
+        self._metadata_worker = MetadataWorker(url)
+        self._metadata_worker.metadata_ready.connect(self._on_metadata_ready)
+        self._metadata_worker.metadata_error.connect(self._on_metadata_error)
+        self._metadata_worker.start()
         self.fetch_requested.emit(url)
+
+    def _on_metadata_ready(self, metadata: MediaMetadata) -> None:
+        """Populate format options and display media details upon worker success."""
+        self._reset_fetch_button()
+        self.status_msg.setVisible(False)
+        self._current_metadata = metadata
+
+        self.media_title_label.setText(metadata.title)
+        meta_text = f"Duur: {metadata.duration_str} • Bron: {metadata.extractor}"
+        if metadata.uploader:
+            meta_text += f" • Maker: {metadata.uploader}"
+        self.media_meta_label.setText(meta_text)
+
+        # Populate format choices
+        self.format_combo.blockSignals(True)
+        self.format_combo.clear()
+        for idx, fmt in enumerate(metadata.formats):
+            self.format_combo.addItem(fmt.display_label, idx)
+        self.format_combo.blockSignals(False)
+
+        # Fetch thumbnail if available
+        if metadata.thumbnail_url:
+            self._net_manager.get(QNetworkRequest(QUrl(metadata.thumbnail_url)))
+
+        # Update FFmpeg warning for initial selection
+        self._on_format_changed(self.format_combo.currentIndex())
+
+        # Switch views
+        self.empty_card.setVisible(False)
+        self.meta_card.setVisible(True)
+        logger.info("Metadata getoond voor '%s'.", metadata.title)
+
+    def _on_metadata_error(self, user_msg: str, tech_msg: str) -> None:
+        """Present failure message when metadata probe fails."""
+        self._reset_fetch_button()
+        self._show_error(user_msg)
+        logger.warning("Fout bij metadata-opvraging: %s", tech_msg)
+
+    def _reset_fetch_button(self) -> None:
+        """Restore fetch controls after probe completes."""
+        self.fetch_btn.setEnabled(True)
+        self.fetch_btn.setText("Informatie ophalen")
+        self.url_input.setEnabled(True)
+
+    def _show_error(self, message: str) -> None:
+        """Display error banner below input bar."""
+        self.status_msg.setText(message)
+        self.status_msg.setStyleSheet("color: #e11d48; font-size: 12px; font-weight: 500;")
+        self.status_msg.setVisible(True)
+
+    def _on_format_changed(self, index: int) -> None:
+        """Inspect selected format and show FFmpeg warning banner if needed."""
+        if not self._current_metadata or index < 0 or index >= len(self._current_metadata.formats):
+            self.ffmpeg_warning.setVisible(False)
+            return
+
+        selected_fmt = self._current_metadata.formats[index]
+        if selected_fmt.requires_ffmpeg and not is_ffmpeg_available():
+            self.ffmpeg_warning.setText(
+                "⚠️ Let op: Dit formaat vereist FFmpeg om de gescheiden video- en audiostream "
+                "samen te voegen. FFmpeg is niet gedetecteerd op uw systeem."
+            )
+            self.ffmpeg_warning.setVisible(True)
+        else:
+            self.ffmpeg_warning.setVisible(False)
+
+    def _on_thumbnail_downloaded(self, reply: QNetworkReply) -> None:
+        """Render received thumbnail image into label."""
+        if reply.error() == QNetworkReply.NetworkError.NoError:
+            data: QByteArray = reply.readAll()
+            pixmap = QPixmap()
+            if pixmap.loadFromData(data):
+                scaled = pixmap.scaled(
+                    self.thumb_label.size(),
+                    Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                self.thumb_label.setPixmap(scaled)
+        reply.deleteLater()
+
+    def _on_browse_target_dir(self) -> None:
+        """Open folder dialog to pick destination."""
+        curr = self.dest_dir_input.text() or str(Path.home())
+        selected = QFileDialog.getExistingDirectory(self, "Kies downloadmap", curr)
+        if selected:
+            self.dest_dir_input.setText(selected)
+
+    def _on_enqueue_clicked(self) -> None:
+        """Create DownloadTask with selected options and emit creation signal."""
+        if not self._current_metadata:
+            return
+
+        dest_dir = self.dest_dir_input.text().strip()
+        if not dest_dir:
+            dest_dir = self._settings_mgr.get().download_dir
+
+        target_path = Path(dest_dir)
+        try:
+            target_path.mkdir(parents=True, exist_ok=True)
+        except OSError as err:
+            self._show_error(f"Doelmap kon niet worden aangemaakt: {err}")
+            return
+
+        fmt_idx = self.format_combo.currentIndex()
+        selected_fmt: FormatOption | None = None
+        if 0 <= fmt_idx < len(self._current_metadata.formats):
+            selected_fmt = self._current_metadata.formats[fmt_idx]
+
+        task = DownloadTask(
+            url=self._current_metadata.url,
+            title=self._current_metadata.title,
+            target_dir=str(target_path),
+            selected_format=selected_fmt,
+        )
+
+        self.task_created.emit(task)
+        self.enqueue_feedback.setText("✓ Taak toegevoegd aan wachtrij!")
+        self.go_to_queue_btn.setVisible(True)
+        logger.info("Nieuwe DownloadTask '%s' aangemaakt vanaf DownloadPage.", task.task_id)
+
+    def _cancel_existing_worker(self) -> None:
+        """Cancel and clean up any ongoing metadata extraction worker."""
+        if self._metadata_worker and self._metadata_worker.isRunning():
+            self._metadata_worker.cancel()
+            self._metadata_worker.wait(1000)
+            self._metadata_worker = None

@@ -37,8 +37,6 @@ LIGHT_STYLESHEET = """
 QMainWindow, QDialog, QWidget {
     background-color: #f8f9fa;
     color: #1a1a1a;
-    font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
-    font-size: 13px;
 }
 
 /* Sidebar / Navigation Rail */
@@ -207,8 +205,6 @@ DARK_STYLESHEET = """
 QMainWindow, QDialog, QWidget {
     background-color: #18181b;
     color: #f4f4f5;
-    font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
-    font-size: 13px;
 }
 
 /* Sidebar / Navigation Rail */

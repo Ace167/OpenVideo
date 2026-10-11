@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - Unreleased
 
 ### Added
+- Phase 3 download engine and queue management foundation:
+  - yt-dlp adapter with typed domain errors, robust progress hooks, and metadata extraction.
+  - Asynchronous background workers (`MetadataWorker`, `DownloadWorker`) keeping GUI responsive.
+  - FFmpeg probe utility for detecting installation and post-processing stream muxing needs.
+  - Thread-safe `QueueManager` controlling concurrency, validated status transitions, cancellations and retries.
+  - SQLite database persistence (`DatabaseManager`) with schema migrations and task history storage.
+  - Interactive `DownloadPage` format selection, thumbnail previewing, and folder destination picking.
+  - Real-time `QueuePage` cards featuring live progress, transfer speeds, ETA and task action buttons.
+  - `MainWindow` lifecycle orchestration and modal confirmation protection on window exit during active downloads.
+  - Comprehensive unit and UI test suite additions (53 tests passing across the project).
 - Phase 2 desktop interface foundation with modern Windows 11 styling.
 - Navigation rail with Downloaden, Wachtrij, Geschiedenis, Instellingen, and Over pages.
 - Dynamic theme switching supporting System, Dark, and Light themes.
