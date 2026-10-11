@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from open_video_downloader.core.models import DownloadTask, TaskStatus, format_bytes
 from open_video_downloader.database.manager import DatabaseManager
 from open_video_downloader.resources.icons import create_symbol_icon
+from open_video_downloader.services.i18n import get_language, tr
 from open_video_downloader.services.logger import get_logger
 
 logger = get_logger("ui.history_page")
@@ -50,7 +51,7 @@ class HistoryItemCard(QFrame):
         self.title_label.setWordWrap(True)
         top_row.addWidget(self.title_label, stretch=1)
 
-        self.status_badge = QLabel(task.status.label_nl, self)
+        self.status_badge = QLabel(task.status.label, self)
         self._update_badge_style(task.status)
         top_row.addWidget(self.status_badge)
 
@@ -66,20 +67,14 @@ class HistoryItemCard(QFrame):
         details_row = QHBoxLayout()
         details_row.setSpacing(14)
 
-        fmt_desc = task.selected_format.display_label if task.selected_format else "Standaard"
-        size_str = format_bytes(task.total_bytes) if task.total_bytes else "onbekend"
-        fname = task.filename or (Path(task.final_filepath).name if task.final_filepath else "—")
-
-        self.meta_label = QLabel(
-            f"Formaat: {fmt_desc} • Grootte: {size_str} • Bestand: {fname}", self
-        )
+        self.meta_label = QLabel(self._build_meta_text(task), self)
         self.meta_label.setStyleSheet("color: #475569; font-size: 12px;")
         self.meta_label.setWordWrap(True)
         details_row.addWidget(self.meta_label, stretch=1)
         layout.addLayout(details_row)
 
         # 3. URL Info
-        self.url_label = QLabel(f"Bron: {task.url}", self)
+        self.url_label = QLabel(self._build_url_text(task), self)
         self.url_label.setStyleSheet("color: #94a3b8; font-size: 11px;")
         self.url_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(self.url_label)
@@ -99,7 +94,7 @@ class HistoryItemCard(QFrame):
         actions_row.setSpacing(8)
 
         # Open File Button
-        self.open_file_btn = QPushButton("Bestand openen", self)
+        self.open_file_btn = QPushButton(tr("history.btn_open_file"), self)
         self.open_file_btn.setProperty("class", "btnSecondary")
         self.open_file_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.open_file_btn.clicked.connect(self._on_open_file)
@@ -108,7 +103,7 @@ class HistoryItemCard(QFrame):
         actions_row.addWidget(self.open_file_btn)
 
         # Open Folder Button
-        self.open_folder_btn = QPushButton("Map openen", self)
+        self.open_folder_btn = QPushButton(tr("history.btn_open_folder"), self)
         self.open_folder_btn.setProperty("class", "btnSecondary")
         self.open_folder_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.open_folder_btn.clicked.connect(self._on_open_folder)
@@ -117,7 +112,7 @@ class HistoryItemCard(QFrame):
         actions_row.addStretch()
 
         # Delete Entry Button
-        self.delete_btn = QPushButton("Verwijderen", self)
+        self.delete_btn = QPushButton(tr("history.btn_delete_item"), self)
         self.delete_btn.setProperty("class", "btnSecondary")
         self.delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.delete_btn.clicked.connect(lambda: self.delete_requested.emit(self.task_id))
@@ -125,9 +120,22 @@ class HistoryItemCard(QFrame):
 
         layout.addLayout(actions_row)
 
+    def _build_meta_text(self, task: DownloadTask) -> str:
+        """Construct localized metadata summary string."""
+        default_fmt = "Standard" if get_language() == "en" else "Standaard"
+        fmt_desc = task.selected_format.display_label if task.selected_format else default_fmt
+        unknown_size = "unknown" if get_language() == "en" else "onbekend"
+        size_str = format_bytes(task.total_bytes) if task.total_bytes else unknown_size
+        fname = task.filename or (Path(task.final_filepath).name if task.final_filepath else "—")
+        return tr("history.item_meta", format=fmt_desc, size=size_str, file=fname)
+
+    def _build_url_text(self, task: DownloadTask) -> str:
+        """Construct localized URL source label."""
+        return tr("history.item_source", url=task.url)
+
     def _update_badge_style(self, status: TaskStatus) -> None:
         """Apply status badge pill styling."""
-        self.status_badge.setText(status.label_nl)
+        self.status_badge.setText(status.label)
         badge_styles = {
             TaskStatus.WAITING: "background-color: #f1f5f9; color: #475569;",
             TaskStatus.DOWNLOADING: "background-color: #e0f2fe; color: #0369a1;",
@@ -138,6 +146,15 @@ class HistoryItemCard(QFrame):
         }
         base_css = "padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;"
         self.status_badge.setStyleSheet(f"{base_css} {badge_styles.get(status, '')}")
+
+    def retranslate_ui(self) -> None:
+        """Update card buttons and labels to match active language."""
+        self.open_file_btn.setText(tr("history.btn_open_file"))
+        self.open_folder_btn.setText(tr("history.btn_open_folder"))
+        self.delete_btn.setText(tr("history.btn_delete_item"))
+        self.status_badge.setText(self._task.status.label)
+        self.meta_label.setText(self._build_meta_text(self._task))
+        self.url_label.setText(self._build_url_text(self._task))
 
     def _on_open_file(self) -> None:
         """Open completed media file in default system player."""
@@ -150,9 +167,8 @@ class HistoryItemCard(QFrame):
         else:
             QMessageBox.information(
                 self,
-                "Bestand niet gevonden",
-                "Het gedownloade bestand is niet langer aanwezig op de opgegeven locatie:\n"
-                f"{file_path}",
+                tr("history.file_not_found_title"),
+                tr("history.file_not_found_msg", path=str(file_path)),
             )
 
     def _on_open_folder(self) -> None:
@@ -167,8 +183,8 @@ class HistoryItemCard(QFrame):
         else:
             QMessageBox.information(
                 self,
-                "Map niet gevonden",
-                f"De doelmap is niet gevonden op schijf:\n{folder_path}",
+                tr("history.folder_not_found_title"),
+                tr("history.folder_not_found_msg", path=str(folder_path)),
             )
 
 
@@ -191,18 +207,18 @@ class HistoryPage(QWidget):
         title_container = QVBoxLayout()
         title_container.setSpacing(4)
 
-        title = QLabel("Geschiedenis", self)
-        title.setProperty("class", "pageTitle")
-        title_container.addWidget(title)
+        self.title_label = QLabel(self)
+        self.title_label.setProperty("class", "pageTitle")
+        title_container.addWidget(self.title_label)
 
-        subtitle = QLabel("Lokaal opgeslagen geschiedenis van voltooide en verwerkte media.", self)
-        subtitle.setProperty("class", "pageSubtitle")
-        title_container.addWidget(subtitle)
+        self.subtitle_label = QLabel(self)
+        self.subtitle_label.setProperty("class", "pageSubtitle")
+        title_container.addWidget(self.subtitle_label)
         header_layout.addLayout(title_container)
 
         header_layout.addStretch()
 
-        self.clear_btn = QPushButton("Geschiedenis wissen", self)
+        self.clear_btn = QPushButton(self)
         self.clear_btn.setProperty("class", "btnSecondary")
         self.clear_btn.setEnabled(False)
         self.clear_btn.clicked.connect(self._on_clear_all_clicked)
@@ -216,7 +232,6 @@ class HistoryPage(QWidget):
 
         # Search Input
         self.search_input = QLineEdit(self)
-        self.search_input.setPlaceholderText("Zoeken op titel, bestandsnaam of URL...")
         self.search_input.setClearButtonEnabled(True)
         self.search_input.setEnabled(False)
         self.search_input.textChanged.connect(self._on_filter_changed)
@@ -224,20 +239,24 @@ class HistoryPage(QWidget):
 
         # Status Filter Combobox
         self.status_filter_combo = QComboBox(self)
-        self.status_filter_combo.addItem("Alle statussen", userData=None)
-        self.status_filter_combo.addItem("Voltooid", userData=TaskStatus.COMPLETED)
-        self.status_filter_combo.addItem("Mislukt", userData=TaskStatus.FAILED)
-        self.status_filter_combo.addItem("Geannuleerd", userData=TaskStatus.CANCELLED)
+        self.status_filter_combo.addItem(tr("history.filter_all"), userData=None)
+        self.status_filter_combo.addItem(
+            tr("history.filter_completed"), userData=TaskStatus.COMPLETED
+        )
+        self.status_filter_combo.addItem(tr("history.filter_failed"), userData=TaskStatus.FAILED)
+        self.status_filter_combo.addItem(
+            tr("history.filter_cancelled"), userData=TaskStatus.CANCELLED
+        )
         self.status_filter_combo.setEnabled(False)
         self.status_filter_combo.currentIndexChanged.connect(self._on_filter_changed)
         controls_layout.addWidget(self.status_filter_combo)
 
         # Sorting Combobox
         self.sort_combo = QComboBox(self)
-        self.sort_combo.addItem("Nieuwste eerst", userData="date_desc")
-        self.sort_combo.addItem("Oudste eerst", userData="date_asc")
-        self.sort_combo.addItem("Titel (A-Z)", userData="title_asc")
-        self.sort_combo.addItem("Bestandsgrootte", userData="size_desc")
+        self.sort_combo.addItem(tr("history.sort_newest"), userData="date_desc")
+        self.sort_combo.addItem(tr("history.sort_oldest"), userData="date_asc")
+        self.sort_combo.addItem(tr("history.sort_title"), userData="title_asc")
+        self.sort_combo.addItem(tr("history.sort_size"), userData="size_desc")
         self.sort_combo.setEnabled(False)
         self.sort_combo.currentIndexChanged.connect(self._on_filter_changed)
         controls_layout.addWidget(self.sort_combo)
@@ -257,19 +276,15 @@ class HistoryPage(QWidget):
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_layout.addWidget(icon_label)
 
-        empty_title = QLabel("Nog geen geschiedenis", self)
-        empty_title.setProperty("class", "emptyStateTitle")
-        empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.addWidget(empty_title)
+        self.empty_title = QLabel(self)
+        self.empty_title.setProperty("class", "emptyStateTitle")
+        self.empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addWidget(self.empty_title)
 
-        empty_desc = QLabel(
-            "Wanneer downloads zijn afgerond, worden de bron-URL, titel, bestandsgrootte\n"
-            "en doelmap hier bewaard in de lokale database.",
-            self,
-        )
-        empty_desc.setProperty("class", "emptyStateText")
-        empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.addWidget(empty_desc)
+        self.empty_desc = QLabel(self)
+        self.empty_desc.setProperty("class", "emptyStateText")
+        self.empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addWidget(self.empty_desc)
 
         layout.addWidget(self.empty_card, stretch=1)
 
@@ -286,20 +301,17 @@ class HistoryPage(QWidget):
         no_res_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         no_res_layout.addWidget(no_res_icon)
 
-        no_res_title = QLabel("Geen resultaten gevonden", self)
-        no_res_title.setProperty("class", "emptyStateTitle")
-        no_res_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        no_res_layout.addWidget(no_res_title)
+        self.no_res_title = QLabel(self)
+        self.no_res_title.setProperty("class", "emptyStateTitle")
+        self.no_res_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        no_res_layout.addWidget(self.no_res_title)
 
-        no_res_desc = QLabel(
-            "Er zijn geen downloads gevonden die voldoen aan uw zoekterm of geselecteerde filters.",
-            self,
-        )
-        no_res_desc.setProperty("class", "emptyStateText")
-        no_res_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        no_res_layout.addWidget(no_res_desc)
+        self.no_res_desc = QLabel(self)
+        self.no_res_desc.setProperty("class", "emptyStateText")
+        self.no_res_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        no_res_layout.addWidget(self.no_res_desc)
 
-        self.reset_filters_btn = QPushButton("Filters wissen", self)
+        self.reset_filters_btn = QPushButton(self)
         self.reset_filters_btn.setProperty("class", "btnSecondary")
         self.reset_filters_btn.setFixedWidth(140)
         self.reset_filters_btn.clicked.connect(self._on_reset_filters_clicked)
@@ -323,8 +335,49 @@ class HistoryPage(QWidget):
         self.scroll_area.setWidget(self.cards_container)
         layout.addWidget(self.scroll_area, stretch=1)
 
+        # Apply initial translations
+        self.retranslate_ui()
+
         # Initial load
         self.refresh_history()
+
+    def retranslate_ui(self) -> None:
+        """Update texts and filter labels to active language."""
+        self.title_label.setText(tr("history.header_title"))
+        self.subtitle_label.setText(tr("history.header_sub"))
+        self.clear_btn.setText(tr("history.btn_clear"))
+        self.search_input.setPlaceholderText(tr("history.search_placeholder"))
+
+        # Update status filter combobox items preserving userData
+        status_labels = [
+            tr("history.filter_all"),
+            tr("history.filter_completed"),
+            tr("history.filter_failed"),
+            tr("history.filter_cancelled"),
+        ]
+        for i, text in enumerate(status_labels):
+            if i < self.status_filter_combo.count():
+                self.status_filter_combo.setItemText(i, text)
+
+        # Update sort combobox items preserving userData
+        sort_labels = [
+            tr("history.sort_newest"),
+            tr("history.sort_oldest"),
+            tr("history.sort_title"),
+            tr("history.sort_size"),
+        ]
+        for i, text in enumerate(sort_labels):
+            if i < self.sort_combo.count():
+                self.sort_combo.setItemText(i, text)
+
+        self.empty_title.setText(tr("history.empty_title"))
+        self.empty_desc.setText(tr("history.empty_sub"))
+        self.no_res_title.setText(tr("history.no_results_title"))
+        self.no_res_desc.setText(tr("history.no_results_sub"))
+        self.reset_filters_btn.setText(tr("history.btn_reset_filters"))
+
+        for card in self._cards:
+            card.retranslate_ui()
 
     def refresh_history(self) -> None:
         """Fetch and render history items matching active filter criteria."""
@@ -415,9 +468,8 @@ class HistoryPage(QWidget):
         """Confirm with user and remove all records from database."""
         reply = QMessageBox.question(
             self,
-            "Geschiedenis wissen?",
-            "Weet u zeker dat u de volledige downloadgeschiedenis wilt wissen?\n\n"
-            "De gedownloade mediabestanden op uw schijf blijven intact.",
+            tr("history.clear_confirm_title"),
+            tr("history.clear_confirm_text"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )

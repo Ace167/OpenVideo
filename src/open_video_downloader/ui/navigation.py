@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 from open_video_downloader import __version__
 from open_video_downloader.core.constants import APP_NAME
 from open_video_downloader.resources.icons import create_app_icon, create_symbol_icon
+from open_video_downloader.services.i18n import tr
 
 
 class NavigationRail(QFrame):
@@ -84,14 +85,30 @@ class NavigationRail(QFrame):
         layout.addStretch()
 
         # Footer with version tag
-        version_label = QLabel(f"Versie {__version__}", self)
-        version_label.setObjectName("navHeaderSubtitle")
-        version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(version_label)
+        self._version_label = QLabel(f"v{__version__}", self)
+        self._version_label.setObjectName("navHeaderSubtitle")
+        self._version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self._version_label)
+
+        # Apply initial translations
+        self.retranslate_ui()
 
         # Default selection: 0 (Downloaden)
         if self._buttons:
             self._buttons[0].setChecked(True)
+
+    def retranslate_ui(self) -> None:
+        """Update button labels and text to reflect active language."""
+        titles = [
+            tr("nav.downloads"),
+            tr("nav.queue"),
+            tr("nav.history"),
+            tr("nav.settings"),
+            tr("nav.about"),
+        ]
+        for btn, title in zip(self._buttons, titles, strict=False):
+            btn.setText(f"  {title}")
+        self._version_label.setText(f"v{__version__}")
 
     def _on_button_clicked(self, page_index: int) -> None:
         """Handle navigation item selection."""

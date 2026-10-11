@@ -50,7 +50,39 @@ def run_app(argv: list[str] | None = None) -> int:
     initial_log_level = settings_manager.get().log_level
     setup_logging(level=initial_log_level, custom_logs_dir=logs_dir)
 
-    logger.info("OpenVideo Downloader gestart (data_dir='%s').", data_dir)
+    # 3. Internationalization (i18n) setup
+    from open_video_downloader.services.i18n import normalize_language_code, set_language
+    from open_video_downloader.settings.models import AppSettings
+
+    raw_args = argv if argv is not None else sys.argv
+    cli_lang: str | None = None
+    for idx, arg in enumerate(raw_args):
+        if arg in ("--lang", "--language") and idx + 1 < len(raw_args):
+            cli_lang = raw_args[idx + 1]
+            break
+
+    if cli_lang:
+        norm_lang = normalize_language_code(cli_lang)
+        set_language(norm_lang)
+        current = settings_manager.get()
+        if current.language != norm_lang:
+            updated_settings = AppSettings(
+                download_dir=current.download_dir,
+                theme=current.theme,
+                language=norm_lang,
+                notifications_enabled=current.notifications_enabled,
+                log_level=current.log_level,
+                max_concurrent_downloads=current.max_concurrent_downloads,
+            )
+            settings_manager.save_settings(updated_settings)
+    else:
+        set_language(settings_manager.get().language)
+
+    logger.info(
+        "OpenVideo Downloader gestart (data_dir='%s', language='%s').",
+        data_dir,
+        settings_manager.get().language,
+    )
 
     # 3. Database and Queue initialization
     from open_video_downloader.core.queue_manager import QueueManager

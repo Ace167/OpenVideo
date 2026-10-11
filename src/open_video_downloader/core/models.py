@@ -37,6 +37,24 @@ class TaskStatus(str, Enum):
         }
         return labels.get(self, self.value)
 
+    @property
+    def label(self) -> str:
+        """User-facing localized status label based on active language."""
+        from open_video_downloader.services.i18n import get_language
+
+        if get_language() == "en":
+            labels_en = {
+                TaskStatus.WAITING: "In queue",
+                TaskStatus.FETCHING_METADATA: "Fetching info...",
+                TaskStatus.DOWNLOADING: "Downloading...",
+                TaskStatus.PROCESSING: "Processing...",
+                TaskStatus.COMPLETED: "Completed",
+                TaskStatus.FAILED: "Failed",
+                TaskStatus.CANCELLED: "Cancelled",
+            }
+            return labels_en.get(self, self.value)
+        return self.label_nl
+
 
 VALID_STATUS_TRANSITIONS: dict[TaskStatus, set[TaskStatus]] = {
     TaskStatus.WAITING: {
@@ -111,9 +129,14 @@ class FormatOption:
     @property
     def display_label(self) -> str:
         """Formatted user-facing label for format selection dropdown."""
+        from open_video_downloader.services.i18n import get_language
+
         size_bytes = self.filesize or self.filesize_approx
         size_str = f", ~{format_bytes(size_bytes)}" if size_bytes else ""
-        ffmpeg_tag = " [Vereist FFmpeg]" if self.requires_ffmpeg else ""
+        if get_language() == "en":
+            ffmpeg_tag = " [Requires FFmpeg]" if self.requires_ffmpeg else ""
+        else:
+            ffmpeg_tag = " [Vereist FFmpeg]" if self.requires_ffmpeg else ""
 
         if self.is_audio_only:
             codec_str = self.acodec if self.acodec != "none" else self.ext.upper()

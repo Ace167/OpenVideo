@@ -25,6 +25,7 @@ from open_video_downloader.database.manager import DatabaseManager
 from open_video_downloader.engines.ffmpeg_probe import is_ffmpeg_available
 from open_video_downloader.resources.icons import create_app_icon
 from open_video_downloader.resources.themes import get_theme_stylesheet
+from open_video_downloader.services.i18n import set_language, tr
 from open_video_downloader.services.logger import get_logger
 from open_video_downloader.settings.manager import SettingsManager
 from open_video_downloader.settings.models import AppSettings
@@ -59,6 +60,9 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(create_app_icon(64))
         self.resize(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT)
         self.setMinimumSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
+
+        # Ensure active language matches settings
+        set_language(self._settings_mgr.get().language)
 
         # Central widget with horizontal split (NavigationRail + Content Pages)
         central_widget = QWidget(self)
@@ -101,11 +105,13 @@ class MainWindow(QMainWindow):
         # 3. Status Bar
         self._setup_status_bar()
 
-        # Connect live settings changes to theme updater and queue concurrency
+        # Connect live settings changes to theme updater, language and queue concurrency
         self._settings_mgr.settings_changed.connect(self._on_settings_changed)
 
-        # Apply initial theme
+        # Apply initial theme & translations
         self.apply_theme(self._settings_mgr.get().theme)
+        self.retranslate_ui()
+
         logger.info("MainWindow geïnitialiseerd (versie v%s).", __version__)
 
     def _setup_status_bar(self) -> None:
@@ -113,24 +119,42 @@ class MainWindow(QMainWindow):
         status_bar = QStatusBar(self)
         self.setStatusBar(status_bar)
 
-        self.status_msg_label = QLabel("Gereed", self)
+        self.status_msg_label = QLabel(tr("status.ready"), self)
         status_bar.addWidget(self.status_msg_label, stretch=1)
 
         # FFmpeg presence indicator
         has_ffmpeg = is_ffmpeg_available()
-        ffmpeg_txt = "FFmpeg: Beschikbaar" if has_ffmpeg else "FFmpeg: Niet gedetecteerd"
         ffmpeg_color = "#16a34a" if has_ffmpeg else "#d97706"
-        self.ffmpeg_label = QLabel(ffmpeg_txt, self)
+        self.ffmpeg_label = QLabel(self)
         self.ffmpeg_label.setStyleSheet(f"color: {ffmpeg_color}; font-weight: 500;")
         status_bar.addPermanentWidget(self.ffmpeg_label)
 
         # Theme indicator
-        self.theme_label = QLabel(f"Thema: {self._settings_mgr.get().theme.capitalize()}", self)
+        self.theme_label = QLabel(self)
         status_bar.addPermanentWidget(self.theme_label)
 
         # Version label
         version_badge = QLabel(f"v{__version__}", self)
         status_bar.addPermanentWidget(version_badge)
+
+    def retranslate_ui(self) -> None:
+        """Update window titles, navigation and sub-pages to active language."""
+        self.nav_rail.retranslate_ui()
+        self.download_page.retranslate_ui()
+        self.queue_page.retranslate_ui()
+        self.history_page.retranslate_ui()
+        self.settings_page.retranslate_ui()
+        self.about_page.retranslate_ui()
+
+        has_ffmpeg = is_ffmpeg_available()
+        ffmpeg_txt = tr("status.ffmpeg_available") if has_ffmpeg else tr("status.ffmpeg_missing")
+        self.ffmpeg_label.setText(ffmpeg_txt)
+
+        theme_name = self._settings_mgr.get().theme.capitalize()
+        self.theme_label.setText(tr("status.theme", theme=theme_name))
+
+        if self.status_msg_label.text() in ("Gereed", "Ready"):
+            self.status_msg_label.setText(tr("status.ready"))
 
     def _on_page_selected(self, index: int) -> None:
         """Switch active view in the stacked widget."""
@@ -142,9 +166,10 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentIndex(index)
         if index == 2:
             self.history_page.refresh_history()
-        page_names = ["Downloaden", "Wachtrij", "Geschiedenis", "Instellingen", "Over"]
-        if 0 <= index < len(page_names):
-            self.set_status_message(f"Pagina geopend: {page_names[index]}")
+
+        page_keys = ["nav.downloads", "nav.queue", "nav.history", "nav.settings", "nav.about"]
+        if 0 <= index < len(page_keys):
+            self.set_status_message(tr("status.page_opened", page=tr(page_keys[index])))
 
     def set_status_message(self, message: str) -> None:
         """Update transient status bar message."""
@@ -155,16 +180,16 @@ class MainWindow(QMainWindow):
         success = self._queue_mgr.add_task(task)
         if success:
             self._db_mgr.save_task(task)
-            self.set_status_message(f"Download toegevoegd: {task.title}")
+            self.set_status_message(tr("status.task_enqueued", title=task.title))
         else:
-            self.set_status_message("Taak is al actief in de wachtrij.")
+            self.set_status_message(tr("status.task_duplicate"))
 
     def _on_task_completed(self, task_id: str, filepath: str) -> None:
         """Persist completed task status to database and refresh history."""
         task = self._queue_mgr.get_task(task_id)
         if task:
             self._db_mgr.save_task(task)
-            self.set_status_message(f"✓ Download voltooid: {task.title}")
+            self.set_status_message(tr("status.task_completed", title=task.title))
             self.history_page.refresh_history()
 
     def _on_task_failed(self, task_id: str, error_msg: str) -> None:
@@ -172,7 +197,7 @@ class MainWindow(QMainWindow):
         task = self._queue_mgr.get_task(task_id)
         if task:
             self._db_mgr.save_task(task)
-            self.set_status_message(f"⚠ Download mislukt: {task.title}")
+            self.set_status_message(tr("status.task_failed", title=task.title))
             self.history_page.refresh_history()
 
     def _on_task_cancelled(self, task_id: str) -> None:
@@ -180,13 +205,14 @@ class MainWindow(QMainWindow):
         task = self._queue_mgr.get_task(task_id)
         if task:
             self._db_mgr.save_task(task)
-            self.set_status_message(f"✕ Download geannuleerd: {task.title}")
+            self.set_status_message(tr("status.task_cancelled", title=task.title))
             self.history_page.refresh_history()
 
     def _on_settings_changed(self, settings: AppSettings) -> None:
         """Respond to dynamic settings updates."""
+        set_language(settings.language)
         self.apply_theme(settings.theme)
-        self.theme_label.setText(f"Thema: {settings.theme.capitalize()}")
+        self.retranslate_ui()
         self._queue_mgr.max_concurrent = settings.max_concurrent_downloads
 
     def apply_theme(self, theme_name: str) -> None:
@@ -205,9 +231,8 @@ class MainWindow(QMainWindow):
         if active_tasks:
             reply = QMessageBox.question(
                 self,
-                "Actieve downloads annuleren?",
-                f"Er zijn nog {len(active_tasks)} actieve download(s) bezig. "
-                "Weet u zeker dat u wilt afsluiten en deze downloads wilt annuleren?",
+                tr("exit.title"),
+                tr("exit.prompt", count=len(active_tasks)),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
@@ -217,7 +242,7 @@ class MainWindow(QMainWindow):
 
             for t in active_tasks:
                 t.set_status(TaskStatus.CANCELLED)
-                t.error_message = "Geannuleerd wegens afsluiten van de applicatie."
+                t.error_message = tr("exit.cancelled_reason")
                 self._db_mgr.save_task(t)
 
         # Safely shut down background queue workers and metadata worker

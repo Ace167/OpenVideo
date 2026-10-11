@@ -22,6 +22,7 @@ from open_video_downloader.engines.ffmpeg_probe import is_ffmpeg_available
 from open_video_downloader.engines.workers import MetadataWorker
 from open_video_downloader.engines.ytdl_adapter import is_valid_url
 from open_video_downloader.resources.icons import create_symbol_icon
+from open_video_downloader.services.i18n import tr
 from open_video_downloader.services.logger import get_logger
 from open_video_downloader.settings.manager import SettingsManager
 
@@ -50,15 +51,13 @@ class DownloadPage(QWidget):
         # 1. Header
         header_layout = QVBoxLayout()
         header_layout.setSpacing(4)
-        title = QLabel("Downloaden", self)
-        title.setProperty("class", "pageTitle")
-        header_layout.addWidget(title)
+        self.title_label = QLabel(self)
+        self.title_label.setProperty("class", "pageTitle")
+        header_layout.addWidget(self.title_label)
 
-        subtitle = QLabel(
-            "Voer een media-URL in om formaten op te halen en downloads te starten.", self
-        )
-        subtitle.setProperty("class", "pageSubtitle")
-        header_layout.addWidget(subtitle)
+        self.subtitle_label = QLabel(self)
+        self.subtitle_label.setProperty("class", "pageSubtitle")
+        header_layout.addWidget(self.subtitle_label)
         layout.addLayout(header_layout)
 
         # 2. Input Card
@@ -71,18 +70,17 @@ class DownloadPage(QWidget):
         input_row.setSpacing(10)
 
         self.url_input = QLineEdit(self)
-        self.url_input.setPlaceholderText("Plak een video- of audio-URL (bijv. https://...)")
         self.url_input.setClearButtonEnabled(True)
         self.url_input.returnPressed.connect(self._on_fetch_clicked)
         input_row.addWidget(self.url_input, stretch=1)
 
-        self.paste_btn = QPushButton("Plakken", self)
+        self.paste_btn = QPushButton(self)
         self.paste_btn.setProperty("class", "btnSecondary")
         self.paste_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.paste_btn.clicked.connect(self.url_input.paste)
         input_row.addWidget(self.paste_btn)
 
-        self.fetch_btn = QPushButton("Informatie ophalen", self)
+        self.fetch_btn = QPushButton(self)
         self.fetch_btn.setProperty("class", "btnPrimary")
         self.fetch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.fetch_btn.clicked.connect(self._on_fetch_clicked)
@@ -111,19 +109,15 @@ class DownloadPage(QWidget):
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_layout.addWidget(icon_label)
 
-        empty_title = QLabel("Geen media geladen", self)
-        empty_title.setProperty("class", "emptyStateTitle")
-        empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.addWidget(empty_title)
+        self.empty_title = QLabel(self)
+        self.empty_title.setProperty("class", "emptyStateTitle")
+        self.empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addWidget(self.empty_title)
 
-        empty_desc = QLabel(
-            "Voer hierboven een geldige media-URL in en klik op 'Informatie ophalen'\n"
-            "om resoluties, kwaliteiten en audio-opties te selecteren.",
-            self,
-        )
-        empty_desc.setProperty("class", "emptyStateText")
-        empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.addWidget(empty_desc)
+        self.empty_desc = QLabel(self)
+        self.empty_desc.setProperty("class", "emptyStateText")
+        self.empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addWidget(self.empty_desc)
 
         layout.addWidget(self.empty_card, stretch=1)
 
@@ -148,12 +142,12 @@ class DownloadPage(QWidget):
         info_vbox = QVBoxLayout()
         info_vbox.setSpacing(4)
 
-        self.media_title_label = QLabel("Titel van de video", self)
+        self.media_title_label = QLabel(self)
         self.media_title_label.setStyleSheet("font-size: 15px; font-weight: 700;")
         self.media_title_label.setWordWrap(True)
         info_vbox.addWidget(self.media_title_label)
 
-        self.media_meta_label = QLabel("Duur: --:-- • Bron: --", self)
+        self.media_meta_label = QLabel(self)
         self.media_meta_label.setStyleSheet("color: #64748b; font-size: 12px;")
         info_vbox.addWidget(self.media_meta_label)
         info_vbox.addStretch()
@@ -164,9 +158,9 @@ class DownloadPage(QWidget):
         # Format selector row
         format_vbox = QVBoxLayout()
         format_vbox.setSpacing(6)
-        fmt_label = QLabel("Beschikbare formaten & kwaliteit:", self)
-        fmt_label.setStyleSheet("font-weight: 600;")
-        format_vbox.addWidget(fmt_label)
+        self.fmt_label = QLabel(self)
+        self.fmt_label.setStyleSheet("font-weight: 600;")
+        format_vbox.addWidget(self.fmt_label)
 
         self.format_combo = QComboBox(self)
         self.format_combo.currentIndexChanged.connect(self._on_format_changed)
@@ -187,9 +181,9 @@ class DownloadPage(QWidget):
         # Download directory row
         dir_vbox = QVBoxLayout()
         dir_vbox.setSpacing(6)
-        dir_label = QLabel("Opslaan in:", self)
-        dir_label.setStyleSheet("font-weight: 600;")
-        dir_vbox.addWidget(dir_label)
+        self.dir_label = QLabel(self)
+        self.dir_label.setStyleSheet("font-weight: 600;")
+        dir_vbox.addWidget(self.dir_label)
 
         dir_row = QHBoxLayout()
         dir_row.setSpacing(10)
@@ -197,7 +191,7 @@ class DownloadPage(QWidget):
         self.dest_dir_input.setText(self._settings_mgr.get().download_dir)
         dir_row.addWidget(self.dest_dir_input, stretch=1)
 
-        self.browse_dir_btn = QPushButton("Bladeren...", self)
+        self.browse_dir_btn = QPushButton(self)
         self.browse_dir_btn.setProperty("class", "btnSecondary")
         self.browse_dir_btn.clicked.connect(self._on_browse_target_dir)
         dir_row.addWidget(self.browse_dir_btn)
@@ -209,13 +203,13 @@ class DownloadPage(QWidget):
         action_row = QHBoxLayout()
         action_row.setSpacing(12)
 
-        self.enqueue_btn = QPushButton("Download starten", self)
+        self.enqueue_btn = QPushButton(self)
         self.enqueue_btn.setProperty("class", "btnPrimary")
         self.enqueue_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.enqueue_btn.clicked.connect(self._on_enqueue_clicked)
         action_row.addWidget(self.enqueue_btn)
 
-        self.go_to_queue_btn = QPushButton("Bekijk wachtrij →", self)
+        self.go_to_queue_btn = QPushButton(self)
         self.go_to_queue_btn.setProperty("class", "btnSecondary")
         self.go_to_queue_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.go_to_queue_btn.setVisible(False)
@@ -231,23 +225,69 @@ class DownloadPage(QWidget):
 
         layout.addWidget(self.meta_card, stretch=1)
 
+        # Apply initial translations
+        self.retranslate_ui()
+
+    def retranslate_ui(self) -> None:
+        """Update texts to active language."""
+        self.title_label.setText(tr("nav.downloads"))
+        self.subtitle_label.setText(tr("download.header_sub"))
+        self.url_input.setPlaceholderText(tr("download.input_placeholder"))
+        self.paste_btn.setText(tr("download.btn_paste"))
+
+        if self.fetch_btn.isEnabled():
+            self.fetch_btn.setText(tr("download.btn_fetch"))
+        else:
+            self.fetch_btn.setText(tr("download.btn_loading"))
+
+        self.empty_title.setText(tr("download.empty_title"))
+        self.empty_desc.setText(tr("download.empty_desc"))
+
+        self.fmt_label.setText(tr("download.format_label"))
+        self.dir_label.setText(tr("download.dir_label"))
+        self.browse_dir_btn.setText(tr("download.btn_browse"))
+        self.enqueue_btn.setText(tr("download.btn_enqueue"))
+        self.go_to_queue_btn.setText(tr("download.btn_go_to_queue"))
+
+        if self._current_metadata:
+            meta = self._current_metadata
+            meta_text = tr(
+                "download.meta_duration",
+                duration=meta.duration_str,
+                extractor=meta.extractor,
+            )
+            if meta.uploader:
+                meta_text += tr("download.meta_uploader", uploader=meta.uploader)
+            self.media_meta_label.setText(meta_text)
+
+            # Refresh format combo item display labels
+            curr_idx = self.format_combo.currentIndex()
+            self.format_combo.blockSignals(True)
+            self.format_combo.clear()
+            for idx, fmt in enumerate(meta.formats):
+                self.format_combo.addItem(fmt.display_label, idx)
+            if 0 <= curr_idx < self.format_combo.count():
+                self.format_combo.setCurrentIndex(curr_idx)
+            self.format_combo.blockSignals(False)
+            self._on_format_changed(self.format_combo.currentIndex())
+
     def _on_fetch_clicked(self) -> None:
         """Validate input URL and initiate background metadata extraction."""
         url = self.url_input.text().strip()
         if not url:
-            self._show_error("Voer eerst een geldige URL in.")
+            self._show_error(tr("download.err_empty_url"))
             return
 
         if not is_valid_url(url):
-            self._show_error("De opgegeven URL heeft geen geldige HTTP- of HTTPS-indeling.")
+            self._show_error(tr("download.err_invalid_url"))
             return
 
         # Prepare UI for loading
-        self.status_msg.setText("Informatie en formaten ophalen via engine...")
+        self.status_msg.setText(tr("download.fetching_status"))
         self.status_msg.setStyleSheet("color: #0284c7; font-size: 12px; font-weight: 500;")
         self.status_msg.setVisible(True)
         self.fetch_btn.setEnabled(False)
-        self.fetch_btn.setText("Laden...")
+        self.fetch_btn.setText(tr("download.btn_loading"))
         self.url_input.setEnabled(False)
         self.enqueue_feedback.setText("")
         self.go_to_queue_btn.setVisible(False)
@@ -269,9 +309,13 @@ class DownloadPage(QWidget):
         self._current_metadata = metadata
 
         self.media_title_label.setText(metadata.title)
-        meta_text = f"Duur: {metadata.duration_str} • Bron: {metadata.extractor}"
+        meta_text = tr(
+            "download.meta_duration",
+            duration=metadata.duration_str,
+            extractor=metadata.extractor,
+        )
         if metadata.uploader:
-            meta_text += f" • Maker: {metadata.uploader}"
+            meta_text += tr("download.meta_uploader", uploader=metadata.uploader)
         self.media_meta_label.setText(meta_text)
 
         # Populate format choices
@@ -302,7 +346,7 @@ class DownloadPage(QWidget):
     def _reset_fetch_button(self) -> None:
         """Restore fetch controls after probe completes."""
         self.fetch_btn.setEnabled(True)
-        self.fetch_btn.setText("Informatie ophalen")
+        self.fetch_btn.setText(tr("download.btn_fetch"))
         self.url_input.setEnabled(True)
 
     def _show_error(self, message: str) -> None:
@@ -319,10 +363,7 @@ class DownloadPage(QWidget):
 
         selected_fmt = self._current_metadata.formats[index]
         if selected_fmt.requires_ffmpeg and not is_ffmpeg_available():
-            self.ffmpeg_warning.setText(
-                "⚠️ Let op: Dit formaat vereist FFmpeg om de gescheiden video- en audiostream "
-                "samen te voegen. FFmpeg is niet gedetecteerd op uw systeem."
-            )
+            self.ffmpeg_warning.setText(tr("download.ffmpeg_warning"))
             self.ffmpeg_warning.setVisible(True)
         else:
             self.ffmpeg_warning.setVisible(False)
@@ -344,7 +385,7 @@ class DownloadPage(QWidget):
     def _on_browse_target_dir(self) -> None:
         """Open folder dialog to pick destination."""
         curr = self.dest_dir_input.text() or str(Path.home())
-        selected = QFileDialog.getExistingDirectory(self, "Kies downloadmap", curr)
+        selected = QFileDialog.getExistingDirectory(self, tr("download.browse_dialog"), curr)
         if selected:
             self.dest_dir_input.setText(selected)
 
@@ -361,7 +402,7 @@ class DownloadPage(QWidget):
         try:
             target_path.mkdir(parents=True, exist_ok=True)
         except OSError as err:
-            self._show_error(f"Doelmap kon niet worden aangemaakt: {err}")
+            self._show_error(tr("download.folder_create_error", err=str(err)))
             return
 
         fmt_idx = self.format_combo.currentIndex()
@@ -377,7 +418,7 @@ class DownloadPage(QWidget):
         )
 
         self.task_created.emit(task)
-        self.enqueue_feedback.setText("✓ Taak toegevoegd aan wachtrij!")
+        self.enqueue_feedback.setText(tr("download.enqueue_success"))
         self.go_to_queue_btn.setVisible(True)
         logger.info("Nieuwe DownloadTask '%s' aangemaakt vanaf DownloadPage.", task.task_id)
 

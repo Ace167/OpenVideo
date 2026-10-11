@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from open_video_downloader.core.paths import get_app_data_dir, get_logs_dir
+from open_video_downloader.services.i18n import tr
 from open_video_downloader.settings.manager import SettingsManager
 from open_video_downloader.settings.models import AppSettings
 
@@ -39,15 +40,13 @@ class SettingsPage(QWidget):
         # 1. Header
         header_layout = QVBoxLayout()
         header_layout.setSpacing(4)
-        title = QLabel("Instellingen", self)
-        title.setProperty("class", "pageTitle")
-        header_layout.addWidget(title)
+        self.title_label = QLabel(self)
+        self.title_label.setProperty("class", "pageTitle")
+        header_layout.addWidget(self.title_label)
 
-        subtitle = QLabel(
-            "Configureer downloadlocaties, interface-uiterlijk en diagnosevoorkeuren.", self
-        )
-        subtitle.setProperty("class", "pageSubtitle")
-        header_layout.addWidget(subtitle)
+        self.subtitle_label = QLabel(self)
+        self.subtitle_label.setProperty("class", "pageSubtitle")
+        header_layout.addWidget(self.subtitle_label)
         layout.addLayout(header_layout)
 
         # 2. Settings Card 1: Downloads
@@ -56,20 +55,20 @@ class SettingsPage(QWidget):
         dl_layout = QVBoxLayout(dl_card)
         dl_layout.setSpacing(12)
 
-        dl_header = QLabel("Downloads", self)
-        dl_header.setProperty("class", "sectionHeader")
-        dl_layout.addWidget(dl_header)
+        self.dl_header = QLabel(self)
+        self.dl_header.setProperty("class", "sectionHeader")
+        dl_layout.addWidget(self.dl_header)
 
         # Download directory row
-        dir_label = QLabel("Standaard downloadmap:", self)
-        dl_layout.addWidget(dir_label)
+        self.dir_label = QLabel(self)
+        dl_layout.addWidget(self.dir_label)
 
         dir_row = QHBoxLayout()
         dir_row.setSpacing(10)
         self.download_dir_input = QLineEdit(self)
         dir_row.addWidget(self.download_dir_input, stretch=1)
 
-        self.browse_btn = QPushButton("Bladeren...", self)
+        self.browse_btn = QPushButton(self)
         self.browse_btn.setProperty("class", "btnSecondary")
         self.browse_btn.clicked.connect(self._on_browse_directory)
         dir_row.addWidget(self.browse_btn)
@@ -77,8 +76,8 @@ class SettingsPage(QWidget):
 
         # Concurrency row
         concur_row = QHBoxLayout()
-        concur_label = QLabel("Maximum aantal gelijktijdige downloads:", self)
-        concur_row.addWidget(concur_label)
+        self.concur_label = QLabel(self)
+        concur_row.addWidget(self.concur_label)
         self.concurrency_spin = QSpinBox(self)
         self.concurrency_spin.setRange(1, 8)
         self.concurrency_spin.setFixedWidth(70)
@@ -94,20 +93,20 @@ class SettingsPage(QWidget):
         ui_layout = QVBoxLayout(ui_card)
         ui_layout.setSpacing(12)
 
-        ui_header = QLabel("Interface & Weergave", self)
-        ui_header.setProperty("class", "sectionHeader")
-        ui_layout.addWidget(ui_header)
+        self.ui_header = QLabel(self)
+        self.ui_header.setProperty("class", "sectionHeader")
+        ui_layout.addWidget(self.ui_header)
 
         # Theme selection
         theme_row = QHBoxLayout()
-        theme_label = QLabel("Thema:", self)
-        theme_label.setFixedWidth(140)
-        theme_row.addWidget(theme_label)
+        self.theme_label = QLabel(self)
+        self.theme_label.setFixedWidth(140)
+        theme_row.addWidget(self.theme_label)
 
         self.theme_combo = QComboBox(self)
-        self.theme_combo.addItem("Systeemthema volgen", "system")
-        self.theme_combo.addItem("Donker thema", "dark")
-        self.theme_combo.addItem("Licht thema", "light")
+        self.theme_combo.addItem(tr("settings.theme_system"), "system")
+        self.theme_combo.addItem(tr("settings.theme_dark"), "dark")
+        self.theme_combo.addItem(tr("settings.theme_light"), "light")
         self.theme_combo.setFixedWidth(200)
         theme_row.addWidget(self.theme_combo)
         theme_row.addStretch()
@@ -115,9 +114,9 @@ class SettingsPage(QWidget):
 
         # Language selection
         lang_row = QHBoxLayout()
-        lang_label = QLabel("Interfacetaal:", self)
-        lang_label.setFixedWidth(140)
-        lang_row.addWidget(lang_label)
+        self.lang_label = QLabel(self)
+        self.lang_label.setFixedWidth(140)
+        lang_row.addWidget(self.lang_label)
 
         self.lang_combo = QComboBox(self)
         self.lang_combo.addItem("Nederlands (nl)", "nl")
@@ -128,9 +127,7 @@ class SettingsPage(QWidget):
         ui_layout.addLayout(lang_row)
 
         # Notifications
-        self.notif_check = QCheckBox(
-            "Bureaubladmeldingen tonen wanneer een download gereed is", self
-        )
+        self.notif_check = QCheckBox(self)
         ui_layout.addWidget(self.notif_check)
 
         layout.addWidget(ui_card)
@@ -141,14 +138,14 @@ class SettingsPage(QWidget):
         adv_layout = QVBoxLayout(adv_card)
         adv_layout.setSpacing(12)
 
-        adv_header = QLabel("Geavanceerd & Diagnose", self)
-        adv_header.setProperty("class", "sectionHeader")
-        adv_layout.addWidget(adv_header)
+        self.adv_header = QLabel(self)
+        self.adv_header.setProperty("class", "sectionHeader")
+        adv_layout.addWidget(self.adv_header)
 
         log_row = QHBoxLayout()
-        log_label = QLabel("Logniveau:", self)
-        log_label.setFixedWidth(140)
-        log_row.addWidget(log_label)
+        self.log_label = QLabel(self)
+        self.log_label.setFixedWidth(140)
+        log_row.addWidget(self.log_label)
 
         self.log_combo = QComboBox(self)
         for lvl in ["INFO", "DEBUG", "WARNING", "ERROR"]:
@@ -162,12 +159,12 @@ class SettingsPage(QWidget):
         storage_row = QHBoxLayout()
         storage_row.setSpacing(10)
 
-        self.open_data_btn = QPushButton("Open gebruikersdatamap", self)
+        self.open_data_btn = QPushButton(self)
         self.open_data_btn.setProperty("class", "btnSecondary")
         self.open_data_btn.clicked.connect(self._open_data_folder)
         storage_row.addWidget(self.open_data_btn)
 
-        self.open_logs_btn = QPushButton("Open logmap", self)
+        self.open_logs_btn = QPushButton(self)
         self.open_logs_btn.setProperty("class", "btnSecondary")
         self.open_logs_btn.clicked.connect(self._open_logs_folder)
         storage_row.addWidget(self.open_logs_btn)
@@ -181,12 +178,12 @@ class SettingsPage(QWidget):
         action_row = QHBoxLayout()
         action_row.setSpacing(12)
 
-        self.save_btn = QPushButton("Instellingen opslaan", self)
+        self.save_btn = QPushButton(self)
         self.save_btn.setProperty("class", "btnPrimary")
         self.save_btn.clicked.connect(self._save_settings)
         action_row.addWidget(self.save_btn)
 
-        self.reset_btn = QPushButton("Standaardwaarden herstellen", self)
+        self.reset_btn = QPushButton(self)
         self.reset_btn.setProperty("class", "btnSecondary")
         self.reset_btn.clicked.connect(self._reset_defaults)
         action_row.addWidget(self.reset_btn)
@@ -200,8 +197,41 @@ class SettingsPage(QWidget):
 
         layout.addStretch()
 
+        # Apply initial translations
+        self.retranslate_ui()
+
         # Populate with current settings
         self.load_from_manager()
+
+    def retranslate_ui(self) -> None:
+        """Update texts to active language."""
+        self.title_label.setText(tr("settings.header_title"))
+        self.subtitle_label.setText(tr("settings.header_sub"))
+        self.dl_header.setText(tr("settings.sec_general"))
+        self.dir_label.setText(tr("settings.download_dir"))
+        self.browse_btn.setText(tr("download.btn_browse"))
+        self.concur_label.setText(tr("settings.concurrent_downloads"))
+        self.ui_header.setText(tr("settings.sec_appearance"))
+        self.theme_label.setText(tr("settings.theme"))
+
+        # Update theme combo text
+        theme_labels = [
+            tr("settings.theme_system"),
+            tr("settings.theme_dark"),
+            tr("settings.theme_light"),
+        ]
+        for i, text in enumerate(theme_labels):
+            if i < self.theme_combo.count():
+                self.theme_combo.setItemText(i, text)
+
+        self.lang_label.setText(tr("settings.language"))
+        self.notif_check.setText(tr("settings.notifications"))
+        self.adv_header.setText(tr("settings.sec_advanced"))
+        self.log_label.setText(tr("settings.log_level"))
+        self.open_data_btn.setText(tr("settings.btn_open_data_dir"))
+        self.open_logs_btn.setText(tr("settings.btn_open_logs_dir"))
+        self.save_btn.setText(tr("settings.btn_save"))
+        self.reset_btn.setText(tr("settings.btn_reset"))
 
     def load_from_manager(self) -> None:
         """Populate UI controls from currently active AppSettings."""
@@ -227,7 +257,7 @@ class SettingsPage(QWidget):
         """Open system directory picker for download location."""
         selected = QFileDialog.getExistingDirectory(
             self,
-            "Selecteer downloadmap",
+            tr("download.browse_dialog"),
             self.download_dir_input.text() or str(Path.home()),
         )
         if selected:
@@ -253,11 +283,11 @@ class SettingsPage(QWidget):
 
         success = self._settings_mgr.save_settings(new_settings)
         if success:
-            self.status_label.setText("✓ Instellingen succesvol opgeslagen.")
+            self.status_label.setText(tr("settings.saved_success"))
             self.status_label.setStyleSheet("color: #16a34a; font-weight: 600; font-size: 12px;")
             self.settings_saved.emit(new_settings)
         else:
-            self.status_label.setText("Fout bij opslaan van instellingen.")
+            self.status_label.setText(tr("settings.saved_error"))
             self.status_label.setStyleSheet("color: #e11d48; font-weight: 600; font-size: 12px;")
 
     def _reset_defaults(self) -> None:
@@ -265,7 +295,7 @@ class SettingsPage(QWidget):
         default_settings = AppSettings.create_default()
         self._settings_mgr.save_settings(default_settings)
         self.load_from_manager()
-        self.status_label.setText("✓ Standaardwaarden hersteld.")
+        self.status_label.setText(tr("settings.defaults_restored"))
         self.status_label.setStyleSheet("color: #0284c7; font-weight: 600; font-size: 12px;")
         self.settings_saved.emit(default_settings)
 

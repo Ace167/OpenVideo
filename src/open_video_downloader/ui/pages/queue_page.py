@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from open_video_downloader.core.models import DownloadTask, TaskStatus, format_bytes
 from open_video_downloader.core.queue_manager import QueueManager
 from open_video_downloader.resources.icons import create_symbol_icon
+from open_video_downloader.services.i18n import get_language, tr
 from open_video_downloader.services.logger import get_logger
 
 logger = get_logger("ui.queue_page")
@@ -48,15 +49,14 @@ class TaskCardWidget(QFrame):
         self.title_label.setWordWrap(True)
         top_row.addWidget(self.title_label, stretch=1)
 
-        self.status_badge = QLabel(task.status.label_nl, self)
+        self.status_badge = QLabel(task.status.label, self)
         self._update_badge_style(task.status)
         top_row.addWidget(self.status_badge)
 
         layout.addLayout(top_row)
 
         # 2. Metadata details row
-        fmt_desc = task.selected_format.display_label if task.selected_format else "Standaard"
-        self.info_label = QLabel(f"Formaat: {fmt_desc} • Doel: {task.target_dir}", self)
+        self.info_label = QLabel(self._build_info_text(task), self)
         self.info_label.setStyleSheet("color: #64748b; font-size: 11px;")
         layout.addWidget(self.info_label)
 
@@ -77,21 +77,21 @@ class TaskCardWidget(QFrame):
         bottom_row.addWidget(self.stats_label, stretch=1)
 
         # Cancel Button
-        self.cancel_btn = QPushButton("Annuleren", self)
+        self.cancel_btn = QPushButton(tr("queue.btn_cancel"), self)
         self.cancel_btn.setProperty("class", "btnSecondary")
         self.cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.cancel_btn.clicked.connect(lambda: self.cancel_requested.emit(self.task_id))
         bottom_row.addWidget(self.cancel_btn)
 
         # Retry Button
-        self.retry_btn = QPushButton("Opnieuw proberen", self)
+        self.retry_btn = QPushButton(tr("queue.btn_retry"), self)
         self.retry_btn.setProperty("class", "btnPrimary")
         self.retry_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.retry_btn.clicked.connect(lambda: self.retry_requested.emit(self.task_id))
         bottom_row.addWidget(self.retry_btn)
 
         # Open File / Folder Button
-        self.open_file_btn = QPushButton("Bestand openen", self)
+        self.open_file_btn = QPushButton(tr("history.btn_open_file"), self)
         self.open_file_btn.setProperty("class", "btnSecondary")
         self.open_file_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.open_file_btn.clicked.connect(self._on_open_file)
@@ -101,27 +101,41 @@ class TaskCardWidget(QFrame):
 
         self.update_task_state(task)
 
+    def _build_info_text(self, task: DownloadTask) -> str:
+        """Construct format and target location label."""
+        default_fmt = "Standard" if get_language() == "en" else "Standaard"
+        fmt_desc = task.selected_format.display_label if task.selected_format else default_fmt
+        return tr("queue.item_format_info", format=fmt_desc, target=task.target_dir)
+
     def _build_stats_text(self, task: DownloadTask) -> str:
         """Construct progress stats or error string based on task status."""
         if task.status == TaskStatus.COMPLETED:
             size_str = format_bytes(task.total_bytes or task.downloaded_bytes)
-            return f"Voltooid ({size_str})"
+            return tr("queue.stats_completed", size=size_str)
         if task.status == TaskStatus.FAILED:
-            return f"Mislukt: {task.error_message or 'Onbekende fout'}"
+            unknown_err = "Unknown error" if get_language() == "en" else "Onbekende fout"
+            return tr("queue.stats_failed", err=task.error_message or unknown_err)
         if task.status == TaskStatus.CANCELLED:
-            return "Geannuleerd door gebruiker"
+            return tr("queue.stats_cancelled")
         if task.status == TaskStatus.PROCESSING:
-            return "Bezig met samenvoegen van audio en video..."
+            return tr("queue.stats_processing")
         if task.status == TaskStatus.DOWNLOADING:
             downloaded = format_bytes(task.downloaded_bytes)
-            total = format_bytes(task.total_bytes) if task.total_bytes else "onbekend"
+            unknown_size = "unknown" if get_language() == "en" else "onbekend"
+            total = format_bytes(task.total_bytes) if task.total_bytes else unknown_size
             speed = f"{format_bytes(task.speed_bytes_sec)}/s" if task.speed_bytes_sec else "-- KB/s"
-            return f"{task.progress:.1f}% van {total} ({downloaded}) • {speed}"
-        return "Wachten op beurt in de wachtrij..."
+            return tr(
+                "queue.stats_downloading",
+                progress=task.progress,
+                total=total,
+                downloaded=downloaded,
+                speed=speed,
+            )
+        return tr("queue.stats_waiting")
 
     def _update_badge_style(self, status: TaskStatus) -> None:
         """Style status badge according to state."""
-        self.status_badge.setText(status.label_nl)
+        self.status_badge.setText(status.label)
         badge_styles = {
             TaskStatus.WAITING: "background-color: #f1f5f9; color: #475569;",
             TaskStatus.DOWNLOADING: "background-color: #e0f2fe; color: #0369a1;",
@@ -138,6 +152,7 @@ class TaskCardWidget(QFrame):
         self._task = task
         self.progress_bar.setValue(int(task.progress))
         self.stats_label.setText(self._build_stats_text(task))
+        self.info_label.setText(self._build_info_text(task))
         self._update_badge_style(task.status)
 
         # Button visibility rules
@@ -152,6 +167,13 @@ class TaskCardWidget(QFrame):
         self.cancel_btn.setVisible(can_cancel)
         self.retry_btn.setVisible(can_retry)
         self.open_file_btn.setVisible(can_open)
+
+    def retranslate_ui(self) -> None:
+        """Update texts in card to match active language."""
+        self.cancel_btn.setText(tr("queue.btn_cancel"))
+        self.retry_btn.setText(tr("queue.btn_retry"))
+        self.open_file_btn.setText(tr("history.btn_open_file"))
+        self.update_task_state(self._task)
 
     def _on_open_file(self) -> None:
         """Open completed file in default media player or Explorer."""
@@ -178,18 +200,18 @@ class QueuePage(QWidget):
         title_container = QVBoxLayout()
         title_container.setSpacing(4)
 
-        title = QLabel("Wachtrij", self)
-        title.setProperty("class", "pageTitle")
-        title_container.addWidget(title)
+        self.title_label = QLabel(self)
+        self.title_label.setProperty("class", "pageTitle")
+        title_container.addWidget(self.title_label)
 
-        subtitle = QLabel("Overzicht van actieve en wachtende downloadtaken.", self)
-        subtitle.setProperty("class", "pageSubtitle")
-        title_container.addWidget(subtitle)
+        self.subtitle_label = QLabel(self)
+        self.subtitle_label.setProperty("class", "pageSubtitle")
+        title_container.addWidget(self.subtitle_label)
         header_layout.addLayout(title_container)
 
         header_layout.addStretch()
 
-        self.cancel_all_btn = QPushButton("Alle actieve annuleren", self)
+        self.cancel_all_btn = QPushButton(self)
         self.cancel_all_btn.setProperty("class", "btnSecondary")
         self.cancel_all_btn.clicked.connect(self._on_cancel_all)
         header_layout.addWidget(self.cancel_all_btn)
@@ -209,20 +231,15 @@ class QueuePage(QWidget):
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_layout.addWidget(icon_label)
 
-        empty_title = QLabel("De downloadwachtrij is leeg", self)
-        empty_title.setProperty("class", "emptyStateTitle")
-        empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.addWidget(empty_title)
+        self.empty_title = QLabel(self)
+        self.empty_title.setProperty("class", "emptyStateTitle")
+        self.empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addWidget(self.empty_title)
 
-        empty_desc = QLabel(
-            "Er worden momenteel geen media gedownload.\n"
-            "Taken die u toevoegt via het downloadscherm verschijnen hier direct "
-            "met hun actieve voortgang.",
-            self,
-        )
-        empty_desc.setProperty("class", "emptyStateText")
-        empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.addWidget(empty_desc)
+        self.empty_desc = QLabel(self)
+        self.empty_desc.setProperty("class", "emptyStateText")
+        self.empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addWidget(self.empty_desc)
 
         layout.addWidget(self.empty_card, stretch=1)
 
@@ -241,10 +258,24 @@ class QueuePage(QWidget):
         self.scroll_area.setWidget(self.cards_container)
         layout.addWidget(self.scroll_area, stretch=1)
 
+        # Apply initial translations
+        self.retranslate_ui()
+
         # Connect QueueManager signals
         self._queue_mgr.task_added.connect(self._on_task_added)
         self._queue_mgr.task_updated.connect(self._on_task_updated)
         self._queue_mgr.task_progress.connect(self._on_task_progress)
+
+    def retranslate_ui(self) -> None:
+        """Update view and child card texts to active language."""
+        self.title_label.setText(tr("queue.header_title"))
+        self.subtitle_label.setText(tr("queue.header_sub"))
+        self.cancel_all_btn.setText(tr("queue.btn_cancel_all"))
+        self.empty_title.setText(tr("queue.empty_title"))
+        self.empty_desc.setText(tr("queue.empty_sub"))
+
+        for card in self._card_widgets.values():
+            card.retranslate_ui()
 
     def get_task(self, task_id: str) -> DownloadTask | None:
         """Lookup task in QueueManager."""
