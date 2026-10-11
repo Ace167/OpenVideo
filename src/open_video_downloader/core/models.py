@@ -4,6 +4,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 from open_video_downloader.services.logger import get_logger
@@ -236,3 +237,10 @@ class DownloadTask:
         if new_status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED):
             self.completed_at = time.time()
         return True
+
+    @property
+    def filename(self) -> str | None:
+        """Return base filename derived from final_filepath if available."""
+        if self.final_filepath:
+            return Path(self.final_filepath).name
+        return None

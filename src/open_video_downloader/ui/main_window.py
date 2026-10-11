@@ -76,7 +76,7 @@ class MainWindow(QMainWindow):
 
         self.download_page = DownloadPage(self._settings_mgr, self.stack)
         self.queue_page = QueuePage(self._queue_mgr, self.stack)
-        self.history_page = HistoryPage(self.stack)
+        self.history_page = HistoryPage(self._db_mgr, self.stack)
         self.settings_page = SettingsPage(self._settings_mgr, self.stack)
         self.about_page = AboutPage(self.stack)
 
@@ -97,6 +97,7 @@ class MainWindow(QMainWindow):
         # Connect queue manager to database persistence and notifications
         self._queue_mgr.task_completed.connect(self._on_task_completed)
         self._queue_mgr.task_failed.connect(self._on_task_failed)
+        self._queue_mgr.task_cancelled.connect(self._on_task_cancelled)
 
         # 3. Status Bar
         self._setup_status_bar()
@@ -140,6 +141,8 @@ class MainWindow(QMainWindow):
         """Update both navigation button state and stacked widget view."""
         self.nav_rail.set_current_index(index)
         self.stack.setCurrentIndex(index)
+        if index == 2:
+            self.history_page.refresh_history()
         page_names = ["Downloaden", "Wachtrij", "Geschiedenis", "Instellingen", "Over"]
         if 0 <= index < len(page_names):
             self.set_status_message(f"Pagina geopend: {page_names[index]}")
@@ -158,18 +161,28 @@ class MainWindow(QMainWindow):
             self.set_status_message("Taak is al actief in de wachtrij.")
 
     def _on_task_completed(self, task_id: str, filepath: str) -> None:
-        """Persist completed task status to database."""
+        """Persist completed task status to database and refresh history."""
         task = self._queue_mgr.get_task(task_id)
         if task:
             self._db_mgr.save_task(task)
             self.set_status_message(f"✓ Download voltooid: {task.title}")
+            self.history_page.refresh_history()
 
     def _on_task_failed(self, task_id: str, error_msg: str) -> None:
-        """Persist failed task status to database."""
+        """Persist failed task status to database and refresh history."""
         task = self._queue_mgr.get_task(task_id)
         if task:
             self._db_mgr.save_task(task)
             self.set_status_message(f"⚠ Download mislukt: {task.title}")
+            self.history_page.refresh_history()
+
+    def _on_task_cancelled(self, task_id: str) -> None:
+        """Persist cancelled task status to database and refresh history."""
+        task = self._queue_mgr.get_task(task_id)
+        if task:
+            self._db_mgr.save_task(task)
+            self.set_status_message(f"✕ Download geannuleerd: {task.title}")
+            self.history_page.refresh_history()
 
     def _on_settings_changed(self, settings: AppSettings) -> None:
         """Respond to dynamic settings updates."""
@@ -202,6 +215,11 @@ class MainWindow(QMainWindow):
             if reply != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
+
+            for t in active_tasks:
+                t.set_status(TaskStatus.CANCELLED)
+                t.error_message = "Geannuleerd wegens afsluiten van de applicatie."
+                self._db_mgr.save_task(t)
 
         # Safely shut down background queue workers and metadata worker
         self._queue_mgr.shutdown()

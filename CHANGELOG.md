@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - Unreleased
 
 ### Added
+- Phase 4 download history, SQLite persistence and end-to-end flow completion:
+  - SQLite schema migration to version 2 adding dedicated `filename` and `format_resolution` columns with automatic backfilling.
+  - Startup recovery routine (`mark_interrupted_tasks`) transitioning abandoned in-flight downloads to `FAILED` with clear interruption explanations.
+  - Comprehensive history querying API (`query_history`, `count_history`, `total_history_count`) with parameterized multi-attribute search (title, filename, URL), status filtering, and sorting.
+  - Full-featured `HistoryPage` interface with real-time card list, authentic empty state, no-results state with filter reset, and individual/batch deletion.
+  - Safe file and destination directory opening verifying filesystem existence prior to launching default desktop tools.
+  - Real-time `MainWindow` synchronization connecting completion, failure, and cancellation signals directly to SQLite and UI history cards.
+  - Modal confirmation exit handler saving in-flight active downloads as cancelled in SQLite prior to application termination.
+  - Expanded unit and UI test suite (65 passing tests across the repository).
 - Phase 3 download engine and queue management foundation:
   - yt-dlp adapter with typed domain errors, robust progress hooks, and metadata extraction.
   - Asynchronous background workers (`MetadataWorker`, `DownloadWorker`) keeping GUI responsive.

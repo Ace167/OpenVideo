@@ -288,9 +288,14 @@ def execute_download(
             if not final_path.exists():
                 stem = final_path.stem
                 parent = final_path.parent
-                candidates = list(parent.glob(f"{re.escape(stem)}.*"))
+                candidates = [c for c in parent.glob(f"{re.escape(stem)}.*") if c.is_file()]
                 if candidates:
                     final_path = candidates[0]
+
+            if not final_path.exists() or not final_path.is_file():
+                raise EngineError(
+                    f"Uitvoerbestand kon niet worden geverifieerd op schijf: {final_path}"
+                )
 
             logger.info("Download succesvol afgerond: '%s'.", final_path)
             return final_path

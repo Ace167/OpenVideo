@@ -105,9 +105,7 @@ def test_extract_metadata_network_timeout(mock_ydl_class: MagicMock):
     """Verify network drop or timeout maps to NetworkTimeoutError."""
     mock_ydl = MagicMock()
     mock_ydl_class.return_value.__enter__.return_value = mock_ydl
-    mock_ydl.extract_info.side_effect = DownloadError(
-        "Connection timed out (getaddrinfo failed)"
-    )
+    mock_ydl.extract_info.side_effect = DownloadError("Connection timed out (getaddrinfo failed)")
 
     with pytest.raises(NetworkTimeoutError) as exc_info:
         extract_metadata("https://example.com/timeout_video")

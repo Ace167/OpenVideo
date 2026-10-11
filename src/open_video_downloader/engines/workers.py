@@ -167,6 +167,15 @@ class DownloadWorker(QThread):
                 cancel_check=self.is_cancelled,
             )
 
+            if final_path.exists() and final_path.is_file():
+                try:
+                    size = final_path.stat().st_size
+                    if size > 0:
+                        self.task.total_bytes = size
+                        self.task.downloaded_bytes = size
+                except OSError:
+                    pass
+
             self.task.final_filepath = str(final_path)
             self.task.progress = 100.0
             self.task.set_status(TaskStatus.COMPLETED)
