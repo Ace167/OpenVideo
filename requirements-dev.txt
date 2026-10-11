@@ -1,5 +1,6 @@
 -r requirements.txt
 mypy>=1.10.0
+pyinstaller>=6.0.0
 pytest>=8.0.0
 pytest-qt>=4.4.0
 ruff>=0.4.0

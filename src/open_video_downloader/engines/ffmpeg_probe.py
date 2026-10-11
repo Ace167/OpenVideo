@@ -2,29 +2,52 @@
 
 import shutil
 import subprocess
+from pathlib import Path
 
 from open_video_downloader.services.logger import get_logger
 
 logger = get_logger("engines.ffmpeg_probe")
 
 
+def _find_binary(name: str) -> str | None:
+    """Return absolute path to binary if found on system PATH or local application directories."""
+    found = shutil.which(name) or shutil.which(f"{name}.exe")
+    if found:
+        return found
+
+    # Search local application and repository folders
+    candidates = [
+        Path.cwd() / f"{name}.exe",
+        Path.cwd() / "bin" / f"{name}.exe",
+        Path.cwd() / "tools" / f"{name}.exe",
+        Path(__file__).resolve().parents[3] / f"{name}.exe",
+        Path(__file__).resolve().parents[3] / "bin" / f"{name}.exe",
+        Path(__file__).resolve().parents[3] / "tools" / f"{name}.exe",
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+
+    return None
+
+
 def get_ffmpeg_path() -> str | None:
-    """Return absolute path to ffmpeg executable if found on system PATH."""
-    return shutil.which("ffmpeg")
+    """Return absolute path to ffmpeg executable if found on system PATH or local folders."""
+    return _find_binary("ffmpeg")
 
 
 def get_ffprobe_path() -> str | None:
-    """Return absolute path to ffprobe executable if found on system PATH."""
-    return shutil.which("ffprobe")
+    """Return absolute path to ffprobe executable if found on system PATH or local folders."""
+    return _find_binary("ffprobe")
 
 
 def is_ffmpeg_available() -> bool:
-    """Return True if ffmpeg executable is present on PATH."""
+    """Return True if ffmpeg executable is present on PATH or local folders."""
     return get_ffmpeg_path() is not None
 
 
 def is_ffprobe_available() -> bool:
-    """Return True if ffprobe executable is present on PATH."""
+    """Return True if ffprobe executable is present on PATH or local folders."""
     return get_ffprobe_path() is not None
 
 

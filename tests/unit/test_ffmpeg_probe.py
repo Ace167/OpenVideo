@@ -46,3 +46,17 @@ def test_get_ffmpeg_version_success(mock_run: MagicMock, mock_which: MagicMock):
 def test_get_ffmpeg_version_missing(mock_which: MagicMock):
     """Verify missing ffmpeg returns None."""
     assert get_ffmpeg_version() is None
+
+
+def test_ffmpeg_local_directory_detection(tmp_path, monkeypatch):
+    """Verify local bin/ffmpeg.exe is detected even when not on system PATH."""
+    from pathlib import Path
+
+    monkeypatch.chdir(tmp_path)
+    bin_dir = Path(tmp_path) / "bin"
+    bin_dir.mkdir()
+    fake_ffmpeg = bin_dir / "ffmpeg.exe"
+    fake_ffmpeg.write_text("binary", encoding="utf-8")
+
+    with patch("shutil.which", return_value=None):
+        assert is_ffmpeg_available() is True

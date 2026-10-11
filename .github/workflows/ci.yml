@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    name: Lint, Type Check & Test
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run Ruff Linter
+        run: ruff check .
+
+      - name: Run Ruff Formatter Check
+        run: ruff format --check .
+
+      - name: Run Mypy Type Checker
+        run: mypy src
+
+      - name: Run Pytest Suite
+        run: pytest
+
+  build-windows:
+    name: Build Windows Application
+    needs: lint-and-test
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Build Windows Executable
+        run: python scripts/build_windows.py
+
+      - name: Test Frozen Application Startup
+        shell: powershell
+        run: |
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $proc = Start-Process -FilePath "dist\OpenVideoDownloader\OpenVideoDownloader.exe" -PassThru
+          Start-Sleep -Seconds 3
+          if ($proc.HasExited -and $proc.ExitCode -ne 0) {
+            Write-Error "Application failed to start: ExitCode $($proc.ExitCode)"
+            exit 1
+          }
+          if (-not $proc.HasExited) {
+            Stop-Process -Id $proc.Id -Force
+          }
+          Write-Host "Smoke test passed: Executable started cleanly."
+
+      - name: Package Portable Zip
+        shell: powershell
+        run: |
+          Compress-Archive -Path dist\OpenVideoDownloader\* -DestinationPath dist\OpenVideoDownloader-portable.zip
+
+      - name: Generate Checksums
+        shell: powershell
+        run: |
+          Get-FileHash -Path dist\OpenVideoDownloader-portable.zip -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash)  $($_.Path | Split-Path -Leaf)" } |
+            Out-File -Encoding utf8 dist\SHA256SUMS.txt
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenVideoDownloader-windows-build
+          path: |
+            dist/OpenVideoDownloader-portable.zip
+            dist/SHA256SUMS.txt
+          retention-days: 14

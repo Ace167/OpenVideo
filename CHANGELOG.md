@@ -8,15 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - Unreleased
 
 ### Added
+- Phase 5 release readiness, Windows installer and GitHub publication:
+  - PyInstaller one-folder specification (`open_video_downloader.spec`) bundling PySide6, yt-dlp, and assets with windowed execution (`--noconsole`) and custom Windows icon.
+  - Inno Setup 6 installer script (`installer/open_video_downloader.iss`) producing `OpenVideoDownloader-Setup-v0.1.0.exe` with Dutch/English wizards, Start Menu shortcuts, and safe uninstaller preserving user data and downloads.
+  - Automated local build script (`scripts/build_windows.py`) and headless frozen binary smoke test (`scripts/smoke_test_binary.py`).
+  - GitHub Actions CI workflow (`.github/workflows/ci.yml`) running full linting, type checks, tests, Windows build, and artifact uploads.
+  - GitHub Actions Release workflow (`.github/workflows/release.yml`) automating release assets, portable ZIP generation, and SHA256 checksums.
+  - GitHub community assets: issue templates (`bug_report.md`, `feature_request.md`), pull request template (`pull_request_template.md`), and release guide (`docs/RELEASE_GUIDE.md`).
+  - Module entry point (`open_video_downloader/__main__.py`) enabling `python -m open_video_downloader`.
+  - About view and status bar integration with unified FFmpeg probe and educational guidance card.
+  - Packaging and metadata unit tests (72 passing tests across the repository).
 - Phase 4 download history, SQLite persistence and end-to-end flow completion:
   - SQLite schema migration to version 2 adding dedicated `filename` and `format_resolution` columns with automatic backfilling.
   - Startup recovery routine (`mark_interrupted_tasks`) transitioning abandoned in-flight downloads to `FAILED` with clear interruption explanations.
+  - FFmpeg probe enhancement supporting portable application and `bin/` directories alongside system `PATH`.
+  - Automatic graceful fallback for "Beste kwaliteit (automatisch)" to single progressive stream (`best[ext=mp4]/best`) when FFmpeg is not installed, preventing download crashes.
+  - User-friendly Dutch error translation for missing FFmpeg when separate DASH audio/video stream merging is requested without FFmpeg installed.
   - Comprehensive history querying API (`query_history`, `count_history`, `total_history_count`) with parameterized multi-attribute search (title, filename, URL), status filtering, and sorting.
   - Full-featured `HistoryPage` interface with real-time card list, authentic empty state, no-results state with filter reset, and individual/batch deletion.
   - Safe file and destination directory opening verifying filesystem existence prior to launching default desktop tools.
   - Real-time `MainWindow` synchronization connecting completion, failure, and cancellation signals directly to SQLite and UI history cards.
   - Modal confirmation exit handler saving in-flight active downloads as cancelled in SQLite prior to application termination.
-  - Expanded unit and UI test suite (65 passing tests across the repository).
+  - Expanded unit and UI test suite (68 passing tests across the repository).
 - Phase 3 download engine and queue management foundation:
   - yt-dlp adapter with typed domain errors, robust progress hooks, and metadata extraction.
   - Asynchronous background workers (`MetadataWorker`, `DownloadWorker`) keeping GUI responsive.

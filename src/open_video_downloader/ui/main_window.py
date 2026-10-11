@@ -1,7 +1,5 @@
 """Main window aggregating navigation rail, stacked page views, and status bar."""
 
-import shutil
-
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -24,6 +22,7 @@ from open_video_downloader.core.constants import (
 from open_video_downloader.core.models import DownloadTask, TaskStatus
 from open_video_downloader.core.queue_manager import QueueManager
 from open_video_downloader.database.manager import DatabaseManager
+from open_video_downloader.engines.ffmpeg_probe import is_ffmpeg_available
 from open_video_downloader.resources.icons import create_app_icon
 from open_video_downloader.resources.themes import get_theme_stylesheet
 from open_video_downloader.services.logger import get_logger
@@ -118,7 +117,7 @@ class MainWindow(QMainWindow):
         status_bar.addWidget(self.status_msg_label, stretch=1)
 
         # FFmpeg presence indicator
-        has_ffmpeg = bool(shutil.which("ffmpeg"))
+        has_ffmpeg = is_ffmpeg_available()
         ffmpeg_txt = "FFmpeg: Beschikbaar" if has_ffmpeg else "FFmpeg: Niet gedetecteerd"
         ffmpeg_color = "#16a34a" if has_ffmpeg else "#d97706"
         self.ffmpeg_label = QLabel(ffmpeg_txt, self)

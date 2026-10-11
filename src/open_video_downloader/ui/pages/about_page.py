@@ -1,8 +1,8 @@
 """About and diagnostics view showing system versions, license and copy utility."""
 
-import shutil
 import sqlite3
 import sys
+from pathlib import Path
 
 import PySide6
 import yt_dlp
@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 from open_video_downloader import __version__
 from open_video_downloader.core.constants import APP_NAME
 from open_video_downloader.core.paths import get_app_data_dir
+from open_video_downloader.engines.ffmpeg_probe import get_ffmpeg_path
 from open_video_downloader.resources.icons import create_app_icon
 from open_video_downloader.services.logger import SensitiveDataFilter
 
@@ -75,9 +76,11 @@ class AboutPage(QWidget):
         grid.setVerticalSpacing(8)
 
         # System info items
-        self._ffmpeg_status = (
-            "Aanwezig op PATH" if shutil.which("ffmpeg") else "Niet gevonden op PATH"
-        )
+        ffmpeg_bin = get_ffmpeg_path()
+        if ffmpeg_bin:
+            self._ffmpeg_status = f"Beschikbaar ({Path(ffmpeg_bin).name})"
+        else:
+            self._ffmpeg_status = "Niet gedetecteerd (progressieve formaten beschikbaar)"
         self._data_dir = str(get_app_data_dir())
 
         info_rows = [
@@ -100,6 +103,25 @@ class AboutPage(QWidget):
             grid.addWidget(val, idx, 1)
 
         diag_layout.addLayout(grid)
+
+        # Informational note regarding FFmpeg and stream muxing
+        ffmpeg_notice = QLabel(
+            "💡 <b>Over FFmpeg & downloadkwaliteit:</b> Hoge resoluties (1080p, 4K) worden door "
+            "platforms zoals YouTube gesplitst in losse video- en audiostreams. FFmpeg is nodig "
+            "om deze samen te voegen. Zonder FFmpeg downloadt OpenVideo Downloader automatisch "
+            "de hoogste beschikbare enkele stream (beeld en geluid gecombineerd) tot 720p.<br>"
+            "<i>Optionele installatie:</i> Voer in PowerShell uit: "
+            "<code>winget install Gyan.FFmpeg</code> "
+            "of plaats <code>ffmpeg.exe</code> in de applicatiemap.",
+            self,
+        )
+        ffmpeg_notice.setStyleSheet(
+            "background-color: rgba(2, 132, 199, 0.08); "
+            "border: 1px solid rgba(2, 132, 199, 0.25); "
+            "border-radius: 6px; padding: 10px; font-size: 12px; color: #334155;"
+        )
+        ffmpeg_notice.setWordWrap(True)
+        diag_layout.addWidget(ffmpeg_notice)
 
         # Copy and open buttons
         btn_row = QHBoxLayout()

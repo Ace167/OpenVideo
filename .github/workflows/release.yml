@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Publish GitHub Release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Build Windows Executable (PyInstaller)
+        run: python scripts/build_windows.py
+
+      - name: Run Smoke Test on Executable
+        run: python scripts/smoke_test_binary.py
+
+      - name: Compile Inno Setup Installer
+        shell: powershell
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $iscc = "ISCC"
+          }
+          & $iscc installer\open_video_downloader.iss
+
+      - name: Package Portable Zip
+        shell: powershell
+        run: |
+          Compress-Archive -Path dist\OpenVideoDownloader\* -DestinationPath dist\OpenVideoDownloader-portable-v0.1.0.zip
+
+      - name: Generate Checksums
+        shell: powershell
+        run: |
+          $files = Get-ChildItem -Path dist\installer\*.exe, dist\*.zip
+          $lines = foreach ($f in $files) {
+            $hash = (Get-FileHash -Path $f.FullName -Algorithm SHA256).Hash
+            "$hash  $($f.Name)"
+          }
+          $lines | Out-File -Encoding utf8 dist\SHA256SUMS.txt
+          Get-Content dist\SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/installer/*.exe
+            dist/OpenVideoDownloader-portable-*.zip
+            dist/SHA256SUMS.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: false

@@ -29,6 +29,12 @@ MANIFEST
 # PyInstaller
 *.manifest
 *.spec
+!open_video_downloader.spec
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
 
 # Installer output
 Output/

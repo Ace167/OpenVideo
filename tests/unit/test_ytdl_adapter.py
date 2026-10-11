@@ -8,6 +8,7 @@ from yt_dlp.utils import DownloadCancelled, DownloadError
 
 from open_video_downloader.engines.ytdl_adapter import (
     DownloadCancelledError,
+    EngineError,
     MediaUnavailableError,
     NetworkTimeoutError,
     execute_download,
@@ -158,3 +159,56 @@ def test_execute_download_cancellation(mock_ydl_class: MagicMock, tmp_path: Path
             progress_callback=lambda d: None,
             cancel_check=lambda: True,
         )
+
+
+@patch("open_video_downloader.engines.ytdl_adapter.is_ffmpeg_available", return_value=False)
+@patch("yt_dlp.YoutubeDL")
+def test_execute_download_ffmpeg_fallback_without_merging(
+    mock_ydl_class: MagicMock, mock_ffmpeg: MagicMock, tmp_path: Path
+):
+    """Verify bestvideo+bestaudio falls back to single-stream when FFmpeg is not installed."""
+    mock_ydl = MagicMock()
+    mock_ydl_class.return_value.__enter__.return_value = mock_ydl
+
+    expected_file = tmp_path / "Single Stream [123].mp4"
+    expected_file.write_text("stream content", encoding="utf-8")
+
+    mock_ydl.extract_info.return_value = {"id": "123", "title": "Single Stream"}
+    mock_ydl.prepare_filename.return_value = str(expected_file)
+
+    result_path = execute_download(
+        url="https://example.com/video",
+        target_dir=tmp_path,
+        format_id="bestvideo+bestaudio/best",
+        progress_callback=lambda d: None,
+    )
+
+    assert result_path == expected_file
+    # Check that ydl was invoked with format fallen back to single stream
+    assert mock_ydl_class.call_args[0][0]["format"] == "best[ext=mp4]/best"
+
+
+@patch("open_video_downloader.engines.ytdl_adapter.is_ffmpeg_available", return_value=False)
+@patch("yt_dlp.YoutubeDL")
+def test_execute_download_ffmpeg_missing_friendly_error(
+    mock_ydl_class: MagicMock, mock_ffmpeg: MagicMock, tmp_path: Path
+):
+    """Verify yt-dlp ffmpeg missing error is converted into clear Dutch guidance."""
+    mock_ydl = MagicMock()
+    mock_ydl_class.return_value.__enter__.return_value = mock_ydl
+    mock_ydl.extract_info.side_effect = DownloadError(
+        "ERROR: You have requested merging of multiple formats but ffmpeg is not installed. "
+        "Aborting due to --abort-on-error"
+    )
+
+    with pytest.raises(EngineError) as exc_info:
+        execute_download(
+            url="https://example.com/video",
+            target_dir=tmp_path,
+            format_id="137+140",
+            progress_callback=lambda d: None,
+        )
+
+    err_text = str(exc_info.value)
+    assert "FFmpeg is niet geïnstalleerd" in err_text
+    assert "samenvoegen" in err_text

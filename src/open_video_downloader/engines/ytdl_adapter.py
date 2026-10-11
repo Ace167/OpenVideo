@@ -14,6 +14,10 @@ from open_video_downloader.core.models import (
     MediaMetadata,
     format_duration,
 )
+from open_video_downloader.engines.ffmpeg_probe import (
+    get_ffmpeg_path,
+    is_ffmpeg_available,
+)
 from open_video_downloader.services.logger import get_logger
 
 logger = get_logger("engines.ytdl_adapter")
@@ -57,13 +61,16 @@ def _parse_formats(raw_formats: list[dict[str, Any]]) -> list[FormatOption]:
     seen_resolutions: set[str] = set()
 
     # 1. Best Quality (Automatic)
+    has_ffmpeg = is_ffmpeg_available()
     results.append(
         FormatOption(
             format_id="bestvideo+bestaudio/best",
             ext="mp4",
             resolution="Beste kwaliteit (automatisch)",
-            requires_ffmpeg=True,
-            note="Combineert de hoogste video- en audiostream",
+            requires_ffmpeg=False,
+            note="Combineert de hoogste video- en audiostream"
+            if has_ffmpeg
+            else "Hoogste kwaliteit (schakelt automatisch naar enkele stream als FFmpeg ontbreekt)",
         )
     )
 
@@ -259,6 +266,19 @@ def execute_download(
     # Safe filename template (limiting title to 100 chars to avoid Windows 260-char path limits)
     outtmpl = str(target_dir / "%(title).100B [%(id)s].%(ext)s")
 
+    has_ffmpeg = is_ffmpeg_available()
+    ffmpeg_bin = get_ffmpeg_path()
+
+    # Graceful fallback when merging is requested without FFmpeg
+    if not has_ffmpeg and "+" in format_id:
+        if format_id == "bestvideo+bestaudio/best":
+            logger.warning(
+                "FFmpeg is niet geïnstalleerd; formaat '%s' wordt automatisch teruggeschakeld naar "
+                "'best[ext=mp4]/best' (enkele stream met audio en video) om afbreken te voorkomen.",
+                format_id,
+            )
+            format_id = "best[ext=mp4]/best"
+
     def internal_hook(d: dict[str, Any]) -> None:
         if cancel_check and cancel_check():
             raise DownloadCancelled("Download geannuleerd door gebruiker.")
@@ -274,6 +294,8 @@ def execute_download(
         "socket_timeout": 20,
         "progress_hooks": [internal_hook],
     }
+    if ffmpeg_bin:
+        ydl_opts["ffmpeg_location"] = ffmpeg_bin
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -308,6 +330,12 @@ def execute_download(
         logger.warning("yt-dlp downloadfout voor '%s': %s", url, err_msg)
         if any(term in err_msg.lower() for term in ["timeout", "timed out", "connection reset"]):
             raise NetworkTimeoutError("Verbinding verbroken tijdens downloaden.") from err
+        if "ffmpeg is not installed" in err_msg.lower() or "ffprobe/ffmpeg" in err_msg.lower():
+            raise EngineError(
+                "FFmpeg is niet geïnstalleerd op uw systeem. Het samenvoegen van gescheiden "
+                "video- en audiostreams vereist FFmpeg. Installeer FFmpeg of kies een enkelvoudig "
+                "formaat (zoals 'Beste kwaliteit' of audio)."
+            ) from err
         raise EngineError(f"Fout tijdens het downloaden: {err_msg}") from err
     except Exception as err:
         logger.error("Onverwachte downloadfout voor '%s': %s", url, err)
