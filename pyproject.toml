@@ -19,6 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "mypy>=1.10.0",
     "pytest>=8.0.0",
     "pytest-qt>=4.4.0",
     "ruff>=0.4.0",
@@ -36,6 +37,7 @@ line-length = 100
 exclude = [
     ".venv",
     ".pytest_cache",
+    ".pytest_temp",
     ".tmp",
     "build",
     "dist",
@@ -56,4 +58,16 @@ ignore = []
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-ra -q -p no:cacheprovider"
+addopts = "-ra -q -p no:cacheprovider --basetemp=.pytest_temp"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+exclude = [
+    ".venv",
+    ".pytest_temp",
+    ".tmp",
+]

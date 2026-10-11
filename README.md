@@ -54,20 +54,23 @@ OpenVideo Downloader is an open-source, desktop media download manager for Windo
    .\.venv\Scripts\Activate.ps1
    ```
 
-4. **Install development dependencies:**
+4. **Install development dependencies and editable package:**
    ```powershell
-   pip install -r requirements-dev.txt
+   pip install -e ".[dev]"
    ```
 
-5. **Run tests & quality checks:**
+5. **Run tests, type checks & code quality checks:**
    ```powershell
    pytest
    ruff check .
    ruff format --check .
+   mypy src
    ```
 
 6. **Launch the application:**
    ```powershell
+   open-video-downloader
+   # or:
    python -m open_video_downloader.main
    ```
 

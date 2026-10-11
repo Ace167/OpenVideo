@@ -2,15 +2,12 @@
 
 import sys
 
-from open_video_downloader.app import MainWindow, create_application
+from open_video_downloader.app import run_app
 
 
 def main() -> int:
     """Main execution entry point."""
-    app = create_application(sys.argv)
-    window = MainWindow()
-    window.show()
-    return app.exec()
+    return run_app(sys.argv)
 
 
 if __name__ == "__main__":

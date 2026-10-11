@@ -8,8 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - Unreleased
 
 ### Added
-- Project architectural scaffolding and repository structure.
-- Virtual environment setup with PySide6, yt-dlp, pytest, pytest-qt, and Ruff.
-- Base PySide6 application window and startup verification.
-- Test configuration supporting offscreen Qt execution.
-- Documentation: README, CONTRIBUTING, SECURITY, THIRD_PARTY_NOTICES, and LICENSE.
+- Phase 2 desktop interface foundation with modern Windows 11 styling.
+- Navigation rail with Downloaden, Wachtrij, Geschiedenis, Instellingen, and Over pages.
+- Dynamic theme switching supporting System, Dark, and Light themes.
+- Persistent settings management with JSON storage in user data directory and atomic disk writes.
+- Centralized rotating logger with sensitive data redaction filter (tokens, cookies, passwords, usernames).
+- First-run check validating write permissions in the local user data directory.
+- Clear, authentic empty states on all views without misleading mock data.
+- System diagnostics report generation with clipboard copy and user privacy redaction.
+- Strict type annotations validated with Mypy (`disallow_untyped_defs = true`).
+- Comprehensive unit and UI test suite covering navigation, settings, paths, logger and themes.
+- Project architectural scaffolding and repository structure (Phase 1).
