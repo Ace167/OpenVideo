@@ -51,6 +51,12 @@ def test_packaging_assets_presence():
     assert spec_path.is_file(), "open_video_downloader.spec must exist for PyInstaller"
     assert iss_path.is_file(), "installer/open_video_downloader.iss must exist for Inno Setup"
 
-    # Verify installer script references the current version
+    # Verify installer script references the current version and critical sections
     iss_content = iss_path.read_text(encoding="utf-8")
     assert f'#define MyAppVersion "{__version__}"' in iss_content
+    assert "CloseApplications=yes" in iss_content
+    assert "ArchitecturesAllowed=x64compatible" in iss_content
+    assert "MinVersion=10.0" in iss_content
+    assert "Software\\Microsoft\\Windows\\CurrentVersion\\App Paths" in iss_content
+    assert 'WorkingDir: "{app}"' in iss_content
+    assert "[UninstallDelete]" in iss_content
