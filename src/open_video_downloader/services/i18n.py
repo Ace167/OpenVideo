@@ -13,6 +13,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "nav.history": "Geschiedenis",
         "nav.settings": "Instellingen",
         "nav.about": "Over",
+        "nav.toggle_sidebar": "Zijbalk in-/uitklappen",
         # Status Bar
         "status.ready": "Gereed",
         "status.ffmpeg_available": "FFmpeg: Beschikbaar",
@@ -201,6 +202,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "nav.history": "History",
         "nav.settings": "Settings",
         "nav.about": "About",
+        "nav.toggle_sidebar": "Toggle sidebar",
         # Status Bar
         "status.ready": "Ready",
         "status.ffmpeg_available": "FFmpeg: Available",

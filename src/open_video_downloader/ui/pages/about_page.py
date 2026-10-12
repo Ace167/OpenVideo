@@ -15,6 +15,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -35,46 +37,60 @@ class AboutPage(QWidget):
         super().__init__(parent)
         self._redaction_filter = SensitiveDataFilter()
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(18)
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        # Smooth, responsive vertical scroll area
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        content_widget = QWidget(self.scroll_area)
+        layout = QVBoxLayout(content_widget)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(16)
 
         # 1. Header
         header_layout = QHBoxLayout()
         header_layout.setSpacing(14)
 
         icon_label = QLabel(self)
-        icon_label.setPixmap(create_app_icon(52).pixmap(52, 52))
-        header_layout.addWidget(icon_label)
+        icon_label.setPixmap(create_app_icon(44).pixmap(44, 44))
+        header_layout.addWidget(icon_label, alignment=Qt.AlignmentFlag.AlignTop)
 
         title_container = QVBoxLayout()
         title_container.setSpacing(2)
 
         title = QLabel(APP_NAME, self)
         title.setProperty("class", "pageTitle")
+        title.setWordWrap(True)
         title_container.addWidget(title)
 
         self.subtitle_label = QLabel(self)
         self.subtitle_label.setProperty("class", "pageSubtitle")
+        self.subtitle_label.setWordWrap(True)
         title_container.addWidget(self.subtitle_label)
 
-        header_layout.addLayout(title_container)
-        header_layout.addStretch()
+        header_layout.addLayout(title_container, stretch=1)
         layout.addLayout(header_layout)
 
         # 2. System & Diagnostics Card
         diag_card = QFrame(self)
         diag_card.setProperty("class", "card")
         diag_layout = QVBoxLayout(diag_card)
-        diag_layout.setSpacing(14)
+        diag_layout.setSpacing(12)
 
         self.diag_header = QLabel(self)
         self.diag_header.setProperty("class", "sectionHeader")
+        self.diag_header.setWordWrap(True)
         diag_layout.addWidget(self.diag_header)
 
         grid = QGridLayout()
-        grid.setHorizontalSpacing(24)
+        grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(8)
+        grid.setColumnStretch(1, 1)
 
         self._ffmpeg_bin = get_ffmpeg_path()
         self._data_dir = str(get_app_data_dir())
@@ -112,45 +128,51 @@ class AboutPage(QWidget):
         ]
 
         for idx, (lbl, val) in enumerate(rows):
-            lbl.setStyleSheet("color: #64748b; font-weight: 500;")
-            val.setStyleSheet("color: #1e293b; font-weight: 600;")
+            lbl.setProperty("class", "diagLabel")
+            lbl.setWordWrap(True)
+            val.setProperty("class", "diagValue")
+            val.setWordWrap(True)
             val.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            grid.addWidget(lbl, idx, 0)
+            val.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            grid.addWidget(lbl, idx, 0, alignment=Qt.AlignmentFlag.AlignTop)
             grid.addWidget(val, idx, 1)
 
         diag_layout.addLayout(grid)
 
         # Informational note regarding FFmpeg and stream muxing
         self.ffmpeg_notice = QLabel(self)
-        self.ffmpeg_notice.setStyleSheet(
-            "background-color: rgba(2, 132, 199, 0.08); "
-            "border: 1px solid rgba(2, 132, 199, 0.25); "
-            "border-radius: 6px; padding: 10px; font-size: 12px; color: #334155;"
-        )
+        self.ffmpeg_notice.setProperty("class", "infoNotice")
         self.ffmpeg_notice.setWordWrap(True)
         diag_layout.addWidget(self.ffmpeg_notice)
 
-        # Copy and open buttons
+        # Copy and open buttons container
+        btn_box = QVBoxLayout()
+        btn_box.setSpacing(6)
+
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
 
         self.copy_btn = QPushButton(self)
         self.copy_btn.setProperty("class", "btnPrimary")
+        self.copy_btn.setAccessibleName("Copy diagnostic system report")
         self.copy_btn.clicked.connect(self._copy_diagnostics)
         btn_row.addWidget(self.copy_btn)
 
         self.open_folder_btn = QPushButton(self)
         self.open_folder_btn.setProperty("class", "btnSecondary")
+        self.open_folder_btn.setAccessibleName("Open user data directory in Explorer")
         self.open_folder_btn.clicked.connect(self._open_data_folder)
         btn_row.addWidget(self.open_folder_btn)
 
+        btn_row.addStretch()
+        btn_box.addLayout(btn_row)
+
         self.copy_feedback = QLabel("", self)
         self.copy_feedback.setStyleSheet("color: #16a34a; font-weight: 600; font-size: 12px;")
-        btn_row.addWidget(self.copy_feedback)
+        self.copy_feedback.setWordWrap(True)
+        btn_box.addWidget(self.copy_feedback)
 
-        btn_row.addStretch()
-        diag_layout.addLayout(btn_row)
-
+        diag_layout.addLayout(btn_box)
         layout.addWidget(diag_card)
 
         # 3. Legal and Disclaimer Card
@@ -161,15 +183,19 @@ class AboutPage(QWidget):
 
         self.legal_header = QLabel(self)
         self.legal_header.setProperty("class", "sectionHeader")
+        self.legal_header.setWordWrap(True)
         legal_layout.addWidget(self.legal_header)
 
         self.disclaimer_text = QLabel(self)
+        self.disclaimer_text.setProperty("class", "metaLabel")
         self.disclaimer_text.setWordWrap(True)
-        self.disclaimer_text.setStyleSheet("color: #64748b; font-size: 12px; line-height: 1.4;")
         legal_layout.addWidget(self.disclaimer_text)
 
         layout.addWidget(legal_card)
         layout.addStretch()
+
+        self.scroll_area.setWidget(content_widget)
+        root_layout.addWidget(self.scroll_area)
 
         # Apply initial translations
         self.retranslate_ui()

@@ -2,7 +2,8 @@
 
 import sys
 
-from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont, QGuiApplication
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from open_video_downloader import __version__
@@ -17,7 +18,10 @@ logger = get_logger("app")
 
 
 def create_application(argv: list[str] | None = None) -> QApplication:
-    """Create and configure the Qt Application instance."""
+    """Create and configure the Qt Application instance with crisp DPI scaling."""
+    QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
     app = QApplication.instance()
     if not isinstance(app, QApplication):
         app = QApplication(argv or sys.argv)

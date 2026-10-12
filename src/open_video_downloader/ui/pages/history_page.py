@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -39,7 +40,7 @@ class HistoryItemCard(QFrame):
         self.setProperty("class", "card")
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setContentsMargins(14, 12, 14, 12)
         layout.setSpacing(8)
 
         # 1. Header: Title, Status Badge, Timestamp
@@ -47,19 +48,20 @@ class HistoryItemCard(QFrame):
         top_row.setSpacing(10)
 
         self.title_label = QLabel(task.title, self)
-        self.title_label.setStyleSheet("font-size: 14px; font-weight: 700;")
+        self.title_label.setProperty("class", "cardTitle")
         self.title_label.setWordWrap(True)
+        self.title_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         top_row.addWidget(self.title_label, stretch=1)
 
         self.status_badge = QLabel(task.status.label, self)
         self._update_badge_style(task.status)
-        top_row.addWidget(self.status_badge)
+        top_row.addWidget(self.status_badge, alignment=Qt.AlignmentFlag.AlignTop)
 
         timestamp_val = task.completed_at or task.created_at
         date_str = datetime.fromtimestamp(timestamp_val).strftime("%d-%m-%Y %H:%M")
         self.date_label = QLabel(date_str, self)
-        self.date_label.setStyleSheet("color: #64748b; font-size: 11px; font-weight: 500;")
-        top_row.addWidget(self.date_label)
+        self.date_label.setProperty("class", "dimText")
+        top_row.addWidget(self.date_label, alignment=Qt.AlignmentFlag.AlignTop)
 
         layout.addLayout(top_row)
 
@@ -68,24 +70,22 @@ class HistoryItemCard(QFrame):
         details_row.setSpacing(14)
 
         self.meta_label = QLabel(self._build_meta_text(task), self)
-        self.meta_label.setStyleSheet("color: #475569; font-size: 12px;")
+        self.meta_label.setProperty("class", "metaLabel")
         self.meta_label.setWordWrap(True)
         details_row.addWidget(self.meta_label, stretch=1)
         layout.addLayout(details_row)
 
-        # 3. URL Info
+        # 3. URL Info with word wrap so long URLs do not force horizontal expansion
         self.url_label = QLabel(self._build_url_text(task), self)
-        self.url_label.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        self.url_label.setProperty("class", "dimText")
+        self.url_label.setWordWrap(True)
         self.url_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(self.url_label)
 
         # 4. Error Message Banner if Failed
         if task.status == TaskStatus.FAILED and task.error_message:
             self.error_label = QLabel(f"⚠️ {task.error_message}", self)
-            self.error_label.setStyleSheet(
-                "color: #b91c1c; background-color: #fef2f2; border: 1px solid #fee2e2; "
-                "border-radius: 4px; padding: 4px 8px; font-size: 11px;"
-            )
+            self.error_label.setProperty("class", "errorBanner")
             self.error_label.setWordWrap(True)
             layout.addWidget(self.error_label)
 
@@ -97,6 +97,7 @@ class HistoryItemCard(QFrame):
         self.open_file_btn = QPushButton(tr("history.btn_open_file"), self)
         self.open_file_btn.setProperty("class", "btnSecondary")
         self.open_file_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.open_file_btn.setAccessibleName("Open completed video file")
         self.open_file_btn.clicked.connect(self._on_open_file)
         has_file = bool(task.status == TaskStatus.COMPLETED and task.final_filepath)
         self.open_file_btn.setVisible(has_file)
@@ -106,6 +107,7 @@ class HistoryItemCard(QFrame):
         self.open_folder_btn = QPushButton(tr("history.btn_open_folder"), self)
         self.open_folder_btn.setProperty("class", "btnSecondary")
         self.open_folder_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.open_folder_btn.setAccessibleName("Open download folder in Explorer")
         self.open_folder_btn.clicked.connect(self._on_open_folder)
         actions_row.addWidget(self.open_folder_btn)
 
@@ -115,6 +117,7 @@ class HistoryItemCard(QFrame):
         self.delete_btn = QPushButton(tr("history.btn_delete_item"), self)
         self.delete_btn.setProperty("class", "btnSecondary")
         self.delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.delete_btn.setAccessibleName("Delete history item")
         self.delete_btn.clicked.connect(lambda: self.delete_requested.emit(self.task_id))
         actions_row.addWidget(self.delete_btn)
 
@@ -199,34 +202,37 @@ class HistoryPage(QWidget):
         self._cards: list[HistoryItemCard] = []
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 24, 28, 24)
+        layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(16)
 
         # 1. Header Row
         header_layout = QHBoxLayout()
+        header_layout.setSpacing(12)
+
         title_container = QVBoxLayout()
         title_container.setSpacing(4)
 
         self.title_label = QLabel(self)
         self.title_label.setProperty("class", "pageTitle")
+        self.title_label.setWordWrap(True)
         title_container.addWidget(self.title_label)
 
         self.subtitle_label = QLabel(self)
         self.subtitle_label.setProperty("class", "pageSubtitle")
+        self.subtitle_label.setWordWrap(True)
         title_container.addWidget(self.subtitle_label)
-        header_layout.addLayout(title_container)
-
-        header_layout.addStretch()
+        header_layout.addLayout(title_container, stretch=1)
 
         self.clear_btn = QPushButton(self)
         self.clear_btn.setProperty("class", "btnSecondary")
         self.clear_btn.setEnabled(False)
+        self.clear_btn.setAccessibleName("Clear all download history")
         self.clear_btn.clicked.connect(self._on_clear_all_clicked)
-        header_layout.addWidget(self.clear_btn)
+        header_layout.addWidget(self.clear_btn, alignment=Qt.AlignmentFlag.AlignTop)
 
         layout.addLayout(header_layout)
 
-        # 2. Filter & Search Controls Bar
+        # 2. Filter & Search Controls Bar (Adaptive layout)
         controls_layout = QHBoxLayout()
         controls_layout.setSpacing(10)
 
@@ -234,6 +240,8 @@ class HistoryPage(QWidget):
         self.search_input = QLineEdit(self)
         self.search_input.setClearButtonEnabled(True)
         self.search_input.setEnabled(False)
+        self.search_input.setMinimumWidth(120)
+        self.search_input.setAccessibleName("Search history")
         self.search_input.textChanged.connect(self._on_filter_changed)
         controls_layout.addWidget(self.search_input, stretch=2)
 
@@ -248,6 +256,10 @@ class HistoryPage(QWidget):
             tr("history.filter_cancelled"), userData=TaskStatus.CANCELLED
         )
         self.status_filter_combo.setEnabled(False)
+        self.status_filter_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.status_filter_combo.setMinimumContentsLength(8)
         self.status_filter_combo.currentIndexChanged.connect(self._on_filter_changed)
         controls_layout.addWidget(self.status_filter_combo)
 
@@ -258,6 +270,10 @@ class HistoryPage(QWidget):
         self.sort_combo.addItem(tr("history.sort_title"), userData="title_asc")
         self.sort_combo.addItem(tr("history.sort_size"), userData="size_desc")
         self.sort_combo.setEnabled(False)
+        self.sort_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.sort_combo.setMinimumContentsLength(8)
         self.sort_combo.currentIndexChanged.connect(self._on_filter_changed)
         controls_layout.addWidget(self.sort_combo)
 
@@ -268,7 +284,7 @@ class HistoryPage(QWidget):
         self.empty_card.setProperty("class", "card")
         empty_layout = QVBoxLayout(self.empty_card)
         empty_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.setContentsMargins(32, 48, 32, 48)
+        empty_layout.setContentsMargins(24, 36, 24, 36)
         empty_layout.setSpacing(12)
 
         icon_label = QLabel(self)
@@ -279,11 +295,13 @@ class HistoryPage(QWidget):
         self.empty_title = QLabel(self)
         self.empty_title.setProperty("class", "emptyStateTitle")
         self.empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_title.setWordWrap(True)
         empty_layout.addWidget(self.empty_title)
 
         self.empty_desc = QLabel(self)
         self.empty_desc.setProperty("class", "emptyStateText")
         self.empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_desc.setWordWrap(True)
         empty_layout.addWidget(self.empty_desc)
 
         layout.addWidget(self.empty_card, stretch=1)
@@ -293,7 +311,7 @@ class HistoryPage(QWidget):
         self.no_results_card.setProperty("class", "card")
         no_res_layout = QVBoxLayout(self.no_results_card)
         no_res_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        no_res_layout.setContentsMargins(32, 48, 32, 48)
+        no_res_layout.setContentsMargins(24, 36, 24, 36)
         no_res_layout.setSpacing(12)
 
         no_res_icon = QLabel(self)
@@ -304,16 +322,19 @@ class HistoryPage(QWidget):
         self.no_res_title = QLabel(self)
         self.no_res_title.setProperty("class", "emptyStateTitle")
         self.no_res_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.no_res_title.setWordWrap(True)
         no_res_layout.addWidget(self.no_res_title)
 
         self.no_res_desc = QLabel(self)
         self.no_res_desc.setProperty("class", "emptyStateText")
         self.no_res_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.no_res_desc.setWordWrap(True)
         no_res_layout.addWidget(self.no_res_desc)
 
         self.reset_filters_btn = QPushButton(self)
         self.reset_filters_btn.setProperty("class", "btnSecondary")
-        self.reset_filters_btn.setFixedWidth(140)
+        self.reset_filters_btn.setMinimumWidth(140)
+        self.reset_filters_btn.setAccessibleName("Reset search filters")
         self.reset_filters_btn.clicked.connect(self._on_reset_filters_clicked)
         no_res_layout.addWidget(self.reset_filters_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -324,6 +345,7 @@ class HistoryPage(QWidget):
         self.scroll_area = QScrollArea(self)
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll_area.setVisible(False)
 
         self.cards_container = QWidget(self.scroll_area)

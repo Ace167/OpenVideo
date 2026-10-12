@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import QByteArray, Qt, QUrl, Signal
+from PySide6.QtCore import QByteArray, QSize, Qt, QUrl, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (
@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -44,8 +46,19 @@ class DownloadPage(QWidget):
         self._net_manager = QNetworkAccessManager(self)
         self._net_manager.finished.connect(self._on_thumbnail_downloaded)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 24, 28, 24)
+        # Root layout with smooth, responsive vertical scroll area
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        content_widget = QWidget(self.scroll_area)
+        layout = QVBoxLayout(content_widget)
+        layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(16)
 
         # 1. Header
@@ -53,10 +66,12 @@ class DownloadPage(QWidget):
         header_layout.setSpacing(4)
         self.title_label = QLabel(self)
         self.title_label.setProperty("class", "pageTitle")
+        self.title_label.setWordWrap(True)
         header_layout.addWidget(self.title_label)
 
         self.subtitle_label = QLabel(self)
         self.subtitle_label.setProperty("class", "pageSubtitle")
+        self.subtitle_label.setWordWrap(True)
         header_layout.addWidget(self.subtitle_label)
         layout.addLayout(header_layout)
 
@@ -71,18 +86,22 @@ class DownloadPage(QWidget):
 
         self.url_input = QLineEdit(self)
         self.url_input.setClearButtonEnabled(True)
+        self.url_input.setMinimumWidth(140)
+        self.url_input.setAccessibleName("Video or Audio URL")
         self.url_input.returnPressed.connect(self._on_fetch_clicked)
         input_row.addWidget(self.url_input, stretch=1)
 
         self.paste_btn = QPushButton(self)
         self.paste_btn.setProperty("class", "btnSecondary")
         self.paste_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.paste_btn.setAccessibleName("Paste from clipboard")
         self.paste_btn.clicked.connect(self.url_input.paste)
         input_row.addWidget(self.paste_btn)
 
         self.fetch_btn = QPushButton(self)
         self.fetch_btn.setProperty("class", "btnPrimary")
         self.fetch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.fetch_btn.setAccessibleName("Fetch video information")
         self.fetch_btn.clicked.connect(self._on_fetch_clicked)
         input_row.addWidget(self.fetch_btn)
 
@@ -101,7 +120,7 @@ class DownloadPage(QWidget):
         self.empty_card.setProperty("class", "card")
         empty_layout = QVBoxLayout(self.empty_card)
         empty_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.setContentsMargins(32, 44, 32, 44)
+        empty_layout.setContentsMargins(24, 36, 24, 36)
         empty_layout.setSpacing(12)
 
         icon_label = QLabel(self)
@@ -112,11 +131,13 @@ class DownloadPage(QWidget):
         self.empty_title = QLabel(self)
         self.empty_title.setProperty("class", "emptyStateTitle")
         self.empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_title.setWordWrap(True)
         empty_layout.addWidget(self.empty_title)
 
         self.empty_desc = QLabel(self)
         self.empty_desc.setProperty("class", "emptyStateText")
         self.empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_desc.setWordWrap(True)
         empty_layout.addWidget(self.empty_desc)
 
         layout.addWidget(self.empty_card, stretch=1)
@@ -130,25 +151,26 @@ class DownloadPage(QWidget):
 
         # Media summary header (Thumbnail + Info)
         media_header_layout = QHBoxLayout()
-        media_header_layout.setSpacing(16)
+        media_header_layout.setSpacing(14)
 
         self.thumb_label = QLabel(self)
-        self.thumb_label.setFixedSize(140, 80)
+        self.thumb_label.setFixedSize(128, 76)
         self.thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.thumb_label.setStyleSheet("background-color: #0f172a; border-radius: 6px;")
-        self.thumb_label.setPixmap(create_symbol_icon("download", 32, "#64748b").pixmap(32, 32))
+        self.thumb_label.setPixmap(create_symbol_icon("download", 30, "#64748b").pixmap(30, 30))
         media_header_layout.addWidget(self.thumb_label)
 
         info_vbox = QVBoxLayout()
         info_vbox.setSpacing(4)
 
         self.media_title_label = QLabel(self)
-        self.media_title_label.setStyleSheet("font-size: 15px; font-weight: 700;")
+        self.media_title_label.setProperty("class", "cardTitle")
         self.media_title_label.setWordWrap(True)
         info_vbox.addWidget(self.media_title_label)
 
         self.media_meta_label = QLabel(self)
-        self.media_meta_label.setStyleSheet("color: #64748b; font-size: 12px;")
+        self.media_meta_label.setProperty("class", "metaLabel")
+        self.media_meta_label.setWordWrap(True)
         info_vbox.addWidget(self.media_meta_label)
         info_vbox.addStretch()
 
@@ -160,9 +182,15 @@ class DownloadPage(QWidget):
         format_vbox.setSpacing(6)
         self.fmt_label = QLabel(self)
         self.fmt_label.setStyleSheet("font-weight: 600;")
+        self.fmt_label.setWordWrap(True)
         format_vbox.addWidget(self.fmt_label)
 
         self.format_combo = QComboBox(self)
+        self.format_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.format_combo.setMinimumContentsLength(10)
+        self.format_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.format_combo.currentIndexChanged.connect(self._on_format_changed)
         format_vbox.addWidget(self.format_combo)
 
@@ -183,12 +211,14 @@ class DownloadPage(QWidget):
         dir_vbox.setSpacing(6)
         self.dir_label = QLabel(self)
         self.dir_label.setStyleSheet("font-weight: 600;")
+        self.dir_label.setWordWrap(True)
         dir_vbox.addWidget(self.dir_label)
 
         dir_row = QHBoxLayout()
         dir_row.setSpacing(10)
         self.dest_dir_input = QLineEdit(self)
         self.dest_dir_input.setText(self._settings_mgr.get().download_dir)
+        self.dest_dir_input.setMinimumWidth(120)
         dir_row.addWidget(self.dest_dir_input, stretch=1)
 
         self.browse_dir_btn = QPushButton(self)
@@ -199,9 +229,12 @@ class DownloadPage(QWidget):
 
         meta_layout.addLayout(dir_vbox)
 
-        # Action Buttons
+        # Action Buttons & Status Row
+        action_container = QVBoxLayout()
+        action_container.setSpacing(8)
+
         action_row = QHBoxLayout()
-        action_row.setSpacing(12)
+        action_row.setSpacing(10)
 
         self.enqueue_btn = QPushButton(self)
         self.enqueue_btn.setProperty("class", "btnPrimary")
@@ -216,14 +249,21 @@ class DownloadPage(QWidget):
         self.go_to_queue_btn.clicked.connect(lambda: self.navigate_to_queue.emit())
         action_row.addWidget(self.go_to_queue_btn)
 
+        action_row.addStretch()
+        action_container.addLayout(action_row)
+
         self.enqueue_feedback = QLabel("", self)
         self.enqueue_feedback.setStyleSheet("color: #16a34a; font-weight: 600; font-size: 12px;")
-        action_row.addWidget(self.enqueue_feedback)
+        self.enqueue_feedback.setWordWrap(True)
+        action_container.addWidget(self.enqueue_feedback)
 
-        action_row.addStretch()
-        meta_layout.addLayout(action_row)
-
+        meta_layout.addLayout(action_container)
         layout.addWidget(self.meta_card, stretch=1)
+
+        layout.addStretch()
+
+        self.scroll_area.setWidget(content_widget)
+        root_layout.addWidget(self.scroll_area)
 
         # Apply initial translations
         self.retranslate_ui()
@@ -375,7 +415,7 @@ class DownloadPage(QWidget):
             pixmap = QPixmap()
             if pixmap.loadFromData(data):
                 scaled = pixmap.scaled(
-                    self.thumb_label.size(),
+                    QSize(self.thumb_label.width(), self.thumb_label.height()),
                     Qt.AspectRatioMode.KeepAspectRatioByExpanding,
                     Qt.TransformationMode.SmoothTransformation,
                 )

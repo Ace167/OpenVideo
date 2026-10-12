@@ -34,9 +34,16 @@ def detect_system_dark_mode() -> bool:
 
 LIGHT_STYLESHEET = """
 /* Light Theme - Modern Windows 11 Clean Styling */
-QMainWindow, QDialog, QWidget {
+QMainWindow, QDialog {
     background-color: #f8f9fa;
+}
+
+QWidget {
     color: #1a1a1a;
+}
+
+QLabel {
+    background: transparent;
 }
 
 /* Sidebar / Navigation Rail */
@@ -79,7 +86,7 @@ QPushButton.navBtn:checked, QPushButton.navBtn.active {
 }
 
 /* Card Containers */
-QFrame.card {
+QFrame.card, QFrame[class="card"] {
     background-color: #ffffff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
@@ -194,17 +201,162 @@ QCheckBox::indicator {
     background-color: #ffffff;
 }
 
-QCheckBox::indicator:checked {
-    background-color: #0284c7;
-    border-color: #0284c7;
+/* Scroll Area & Scrollbars */
+QScrollArea {
+    background-color: transparent;
+    border: none;
+}
+
+QScrollArea > QWidget > QWidget {
+    background-color: transparent;
+}
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 8px;
+    margin: 0px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:vertical {
+    background: #cbd5e1;
+    min-height: 24px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #94a3b8;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: transparent;
+    height: 0px;
+    border: none;
+}
+
+QScrollBar:horizontal {
+    background: transparent;
+    height: 8px;
+    margin: 0px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #cbd5e1;
+    min-width: 24px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #94a3b8;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal,
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+    background: transparent;
+    width: 0px;
+    border: none;
+}
+
+/* Tooltips */
+QToolTip {
+    background-color: #0f172a;
+    color: #f8fafc;
+    border: 1px solid #334155;
+    border-radius: 5px;
+    padding: 5px 9px;
+    font-size: 11px;
+}
+
+/* Nav Rail Toggle & Compact Mode */
+QPushButton#navToggleBtn {
+    border: none;
+    background-color: transparent;
+    border-radius: 5px;
+    padding: 4px;
+    color: #4b5563;
+}
+
+QPushButton#navToggleBtn:hover {
+    background-color: #f3f4f6;
+    color: #111827;
+}
+
+QPushButton.navBtnCompact {
+    text-align: center;
+    padding: 9px 0px;
+    border: none;
+    border-radius: 6px;
+    background-color: transparent;
+}
+
+QPushButton.navBtnCompact:hover {
+    background-color: #f3f4f6;
+}
+
+QPushButton.navBtnCompact:checked {
+    background-color: #e0f2fe;
+}
+
+/* Typography & Utility Classes */
+QLabel[class="cardTitle"], .cardTitle {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+}
+
+QLabel[class="metaLabel"], .metaLabel {
+    color: #475569;
+    font-size: 12px;
+}
+
+QLabel[class="dimText"], .dimText {
+    color: #64748b;
+    font-size: 11px;
+}
+
+QLabel[class="diagLabel"], .diagLabel {
+    color: #64748b;
+    font-weight: 500;
+}
+
+QLabel[class="diagValue"], .diagValue {
+    color: #1e293b;
+    font-weight: 600;
+}
+
+QLabel[class="infoNotice"], .infoNotice {
+    background-color: rgba(2, 132, 199, 0.08);
+    border: 1px solid rgba(2, 132, 199, 0.25);
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 12px;
+    color: #334155;
+}
+
+QLabel[class="errorBanner"], .errorBanner {
+    color: #b91c1c;
+    background-color: #fef2f2;
+    border: 1px solid #fee2e2;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
 }
 """
 
 DARK_STYLESHEET = """
 /* Dark Theme - Modern Windows 11 Sleek Dark Styling */
-QMainWindow, QDialog, QWidget {
+QMainWindow, QDialog {
     background-color: #18181b;
+}
+
+QWidget {
     color: #f4f4f5;
+}
+
+QLabel {
+    background: transparent;
 }
 
 /* Sidebar / Navigation Rail */
@@ -247,7 +399,7 @@ QPushButton.navBtn:checked, QPushButton.navBtn.active {
 }
 
 /* Card Containers */
-QFrame.card {
+QFrame.card, QFrame[class="card"] {
     background-color: #242427;
     border: 1px solid #323238;
     border-radius: 8px;
@@ -367,6 +519,149 @@ QCheckBox::indicator {
 QCheckBox::indicator:checked {
     background-color: #0284c7;
     border-color: #38bdf8;
+}
+
+/* Scroll Area & Scrollbars */
+QScrollArea {
+    background-color: transparent;
+    border: none;
+}
+
+QScrollArea > QWidget > QWidget {
+    background-color: transparent;
+}
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 8px;
+    margin: 0px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:vertical {
+    background: #3f3f46;
+    min-height: 24px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #52525b;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: transparent;
+    height: 0px;
+    border: none;
+}
+
+QScrollBar:horizontal {
+    background: transparent;
+    height: 8px;
+    margin: 0px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #3f3f46;
+    min-width: 24px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #52525b;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal,
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+    background: transparent;
+    width: 0px;
+    border: none;
+}
+
+/* Tooltips */
+QToolTip {
+    background-color: #27272a;
+    color: #f4f4f5;
+    border: 1px solid #3f3f46;
+    border-radius: 5px;
+    padding: 5px 9px;
+    font-size: 11px;
+}
+
+/* Nav Rail Toggle & Compact Mode */
+QPushButton#navToggleBtn {
+    border: none;
+    background-color: transparent;
+    border-radius: 5px;
+    padding: 4px;
+    color: #a1a1aa;
+}
+
+QPushButton#navToggleBtn:hover {
+    background-color: #27272a;
+    color: #ffffff;
+}
+
+QPushButton.navBtnCompact {
+    text-align: center;
+    padding: 9px 0px;
+    border: none;
+    border-radius: 6px;
+    background-color: transparent;
+}
+
+QPushButton.navBtnCompact:hover {
+    background-color: #27272a;
+}
+
+QPushButton.navBtnCompact:checked {
+    background-color: #0c4a6e;
+}
+
+/* Typography & Utility Classes */
+QLabel[class="cardTitle"], .cardTitle {
+    font-size: 14px;
+    font-weight: 700;
+    color: #f4f4f5;
+}
+
+QLabel[class="metaLabel"], .metaLabel {
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+QLabel[class="dimText"], .dimText {
+    color: #64748b;
+    font-size: 11px;
+}
+
+QLabel[class="diagLabel"], .diagLabel {
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+QLabel[class="diagValue"], .diagValue {
+    color: #f8fafc;
+    font-weight: 600;
+}
+
+QLabel[class="infoNotice"], .infoNotice {
+    background-color: rgba(2, 132, 199, 0.15);
+    border: 1px solid rgba(2, 132, 199, 0.35);
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 12px;
+    color: #e0f2fe;
+}
+
+QLabel[class="errorBanner"], .errorBanner {
+    color: #fca5a5;
+    background-color: #2d1215;
+    border: 1px solid #4c1d24;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
 }
 """
 

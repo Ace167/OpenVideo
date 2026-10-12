@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -37,7 +38,7 @@ class TaskCardWidget(QFrame):
         self.setProperty("class", "card")
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setContentsMargins(14, 12, 14, 12)
         layout.setSpacing(8)
 
         # 1. Title & Status Badge Row
@@ -45,19 +46,21 @@ class TaskCardWidget(QFrame):
         top_row.setSpacing(10)
 
         self.title_label = QLabel(task.title, self)
-        self.title_label.setStyleSheet("font-size: 14px; font-weight: 700;")
+        self.title_label.setProperty("class", "cardTitle")
         self.title_label.setWordWrap(True)
+        self.title_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         top_row.addWidget(self.title_label, stretch=1)
 
         self.status_badge = QLabel(task.status.label, self)
         self._update_badge_style(task.status)
-        top_row.addWidget(self.status_badge)
+        top_row.addWidget(self.status_badge, alignment=Qt.AlignmentFlag.AlignTop)
 
         layout.addLayout(top_row)
 
         # 2. Metadata details row
         self.info_label = QLabel(self._build_info_text(task), self)
-        self.info_label.setStyleSheet("color: #64748b; font-size: 11px;")
+        self.info_label.setProperty("class", "dimText")
+        self.info_label.setWordWrap(True)
         layout.addWidget(self.info_label)
 
         # 3. Progress Bar
@@ -68,35 +71,45 @@ class TaskCardWidget(QFrame):
         self.progress_bar.setTextVisible(False)
         layout.addWidget(self.progress_bar)
 
-        # 4. Progress Stats & Actions Row
+        # 4. Progress Stats & Actions Row (Responsive layout)
         bottom_row = QHBoxLayout()
         bottom_row.setSpacing(10)
 
         self.stats_label = QLabel(self._build_stats_text(task), self)
-        self.stats_label.setStyleSheet("color: #475569; font-size: 12px; font-weight: 500;")
+        self.stats_label.setProperty("class", "metaLabel")
+        self.stats_label.setWordWrap(True)
+        self.stats_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         bottom_row.addWidget(self.stats_label, stretch=1)
+
+        # Action Buttons container
+        actions_box = QHBoxLayout()
+        actions_box.setSpacing(8)
 
         # Cancel Button
         self.cancel_btn = QPushButton(tr("queue.btn_cancel"), self)
         self.cancel_btn.setProperty("class", "btnSecondary")
         self.cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.cancel_btn.setAccessibleName("Cancel download")
         self.cancel_btn.clicked.connect(lambda: self.cancel_requested.emit(self.task_id))
-        bottom_row.addWidget(self.cancel_btn)
+        actions_box.addWidget(self.cancel_btn)
 
         # Retry Button
         self.retry_btn = QPushButton(tr("queue.btn_retry"), self)
         self.retry_btn.setProperty("class", "btnPrimary")
         self.retry_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.retry_btn.setAccessibleName("Retry download")
         self.retry_btn.clicked.connect(lambda: self.retry_requested.emit(self.task_id))
-        bottom_row.addWidget(self.retry_btn)
+        actions_box.addWidget(self.retry_btn)
 
         # Open File / Folder Button
         self.open_file_btn = QPushButton(tr("history.btn_open_file"), self)
         self.open_file_btn.setProperty("class", "btnSecondary")
         self.open_file_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.open_file_btn.setAccessibleName("Open completed media file")
         self.open_file_btn.clicked.connect(self._on_open_file)
-        bottom_row.addWidget(self.open_file_btn)
+        actions_box.addWidget(self.open_file_btn)
 
+        bottom_row.addLayout(actions_box)
         layout.addLayout(bottom_row)
 
         self.update_task_state(task)
@@ -192,29 +205,32 @@ class QueuePage(QWidget):
         self._card_widgets: dict[str, TaskCardWidget] = {}
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 24, 28, 24)
+        layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(16)
 
         # 1. Header Row
         header_layout = QHBoxLayout()
+        header_layout.setSpacing(12)
+
         title_container = QVBoxLayout()
         title_container.setSpacing(4)
 
         self.title_label = QLabel(self)
         self.title_label.setProperty("class", "pageTitle")
+        self.title_label.setWordWrap(True)
         title_container.addWidget(self.title_label)
 
         self.subtitle_label = QLabel(self)
         self.subtitle_label.setProperty("class", "pageSubtitle")
+        self.subtitle_label.setWordWrap(True)
         title_container.addWidget(self.subtitle_label)
-        header_layout.addLayout(title_container)
-
-        header_layout.addStretch()
+        header_layout.addLayout(title_container, stretch=1)
 
         self.cancel_all_btn = QPushButton(self)
         self.cancel_all_btn.setProperty("class", "btnSecondary")
+        self.cancel_all_btn.setAccessibleName("Cancel all active downloads")
         self.cancel_all_btn.clicked.connect(self._on_cancel_all)
-        header_layout.addWidget(self.cancel_all_btn)
+        header_layout.addWidget(self.cancel_all_btn, alignment=Qt.AlignmentFlag.AlignTop)
 
         layout.addLayout(header_layout)
 
@@ -223,7 +239,7 @@ class QueuePage(QWidget):
         self.empty_card.setProperty("class", "card")
         empty_layout = QVBoxLayout(self.empty_card)
         empty_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_layout.setContentsMargins(32, 48, 32, 48)
+        empty_layout.setContentsMargins(24, 36, 24, 36)
         empty_layout.setSpacing(12)
 
         icon_label = QLabel(self)
@@ -234,11 +250,13 @@ class QueuePage(QWidget):
         self.empty_title = QLabel(self)
         self.empty_title.setProperty("class", "emptyStateTitle")
         self.empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_title.setWordWrap(True)
         empty_layout.addWidget(self.empty_title)
 
         self.empty_desc = QLabel(self)
         self.empty_desc.setProperty("class", "emptyStateText")
         self.empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_desc.setWordWrap(True)
         empty_layout.addWidget(self.empty_desc)
 
         layout.addWidget(self.empty_card, stretch=1)
@@ -247,6 +265,7 @@ class QueuePage(QWidget):
         self.scroll_area = QScrollArea(self)
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll_area.setVisible(False)
 
         self.cards_container = QWidget(self.scroll_area)

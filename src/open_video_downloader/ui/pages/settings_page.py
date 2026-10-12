@@ -2,17 +2,19 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import QUrl, Signal
+from PySide6.QtCore import Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFileDialog,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -33,19 +35,32 @@ class SettingsPage(QWidget):
         super().__init__(parent)
         self._settings_mgr = settings_manager
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(18)
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        # Smooth, responsive vertical scroll area
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        content_widget = QWidget(self.scroll_area)
+        layout = QVBoxLayout(content_widget)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(16)
 
         # 1. Header
         header_layout = QVBoxLayout()
         header_layout.setSpacing(4)
         self.title_label = QLabel(self)
         self.title_label.setProperty("class", "pageTitle")
+        self.title_label.setWordWrap(True)
         header_layout.addWidget(self.title_label)
 
         self.subtitle_label = QLabel(self)
         self.subtitle_label.setProperty("class", "pageSubtitle")
+        self.subtitle_label.setWordWrap(True)
         header_layout.addWidget(self.subtitle_label)
         layout.addLayout(header_layout)
 
@@ -57,30 +72,39 @@ class SettingsPage(QWidget):
 
         self.dl_header = QLabel(self)
         self.dl_header.setProperty("class", "sectionHeader")
+        self.dl_header.setWordWrap(True)
         dl_layout.addWidget(self.dl_header)
 
         # Download directory row
         self.dir_label = QLabel(self)
+        self.dir_label.setWordWrap(True)
         dl_layout.addWidget(self.dir_label)
 
         dir_row = QHBoxLayout()
         dir_row.setSpacing(10)
         self.download_dir_input = QLineEdit(self)
+        self.download_dir_input.setMinimumWidth(140)
+        self.download_dir_input.setAccessibleName("Default download directory path")
         dir_row.addWidget(self.download_dir_input, stretch=1)
 
         self.browse_btn = QPushButton(self)
         self.browse_btn.setProperty("class", "btnSecondary")
+        self.browse_btn.setAccessibleName("Browse download folder")
         self.browse_btn.clicked.connect(self._on_browse_directory)
         dir_row.addWidget(self.browse_btn)
         dl_layout.addLayout(dir_row)
 
         # Concurrency row
         concur_row = QHBoxLayout()
+        concur_row.setSpacing(12)
         self.concur_label = QLabel(self)
+        self.concur_label.setWordWrap(True)
         concur_row.addWidget(self.concur_label)
+
         self.concurrency_spin = QSpinBox(self)
         self.concurrency_spin.setRange(1, 8)
         self.concurrency_spin.setFixedWidth(70)
+        self.concurrency_spin.setAccessibleName("Maximum concurrent downloads")
         concur_row.addWidget(self.concurrency_spin)
         concur_row.addStretch()
         dl_layout.addLayout(concur_row)
@@ -95,39 +119,51 @@ class SettingsPage(QWidget):
 
         self.ui_header = QLabel(self)
         self.ui_header.setProperty("class", "sectionHeader")
+        self.ui_header.setWordWrap(True)
         ui_layout.addWidget(self.ui_header)
 
+        # Grid for aligned, flexible form items
+        ui_grid = QGridLayout()
+        ui_grid.setHorizontalSpacing(16)
+        ui_grid.setVerticalSpacing(10)
+
         # Theme selection
-        theme_row = QHBoxLayout()
         self.theme_label = QLabel(self)
-        self.theme_label.setFixedWidth(140)
-        theme_row.addWidget(self.theme_label)
+        self.theme_label.setWordWrap(True)
+        ui_grid.addWidget(self.theme_label, 0, 0)
 
         self.theme_combo = QComboBox(self)
         self.theme_combo.addItem(tr("settings.theme_system"), "system")
         self.theme_combo.addItem(tr("settings.theme_dark"), "dark")
         self.theme_combo.addItem(tr("settings.theme_light"), "light")
-        self.theme_combo.setFixedWidth(200)
-        theme_row.addWidget(self.theme_combo)
-        theme_row.addStretch()
-        ui_layout.addLayout(theme_row)
+        self.theme_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.theme_combo.setMinimumWidth(160)
+        self.theme_combo.setAccessibleName("Select interface theme")
+        ui_grid.addWidget(self.theme_combo, 0, 1)
 
         # Language selection
-        lang_row = QHBoxLayout()
         self.lang_label = QLabel(self)
-        self.lang_label.setFixedWidth(140)
-        lang_row.addWidget(self.lang_label)
+        self.lang_label.setWordWrap(True)
+        ui_grid.addWidget(self.lang_label, 1, 0)
 
         self.lang_combo = QComboBox(self)
         self.lang_combo.addItem("Nederlands (nl)", "nl")
         self.lang_combo.addItem("English (en)", "en")
-        self.lang_combo.setFixedWidth(200)
-        lang_row.addWidget(self.lang_combo)
-        lang_row.addStretch()
-        ui_layout.addLayout(lang_row)
+        self.lang_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.lang_combo.setMinimumWidth(160)
+        self.lang_combo.setAccessibleName("Select interface language")
+        ui_grid.addWidget(self.lang_combo, 1, 1)
 
-        # Notifications
+        ui_grid.setColumnStretch(1, 1)
+        ui_layout.addLayout(ui_grid)
+
+        # Notifications checkbox
         self.notif_check = QCheckBox(self)
+        self.notif_check.setAccessibleName("Enable desktop notifications")
         ui_layout.addWidget(self.notif_check)
 
         layout.addWidget(ui_card)
@@ -140,17 +176,20 @@ class SettingsPage(QWidget):
 
         self.adv_header = QLabel(self)
         self.adv_header.setProperty("class", "sectionHeader")
+        self.adv_header.setWordWrap(True)
         adv_layout.addWidget(self.adv_header)
 
         log_row = QHBoxLayout()
+        log_row.setSpacing(16)
         self.log_label = QLabel(self)
-        self.log_label.setFixedWidth(140)
+        self.log_label.setWordWrap(True)
         log_row.addWidget(self.log_label)
 
         self.log_combo = QComboBox(self)
         for lvl in ["INFO", "DEBUG", "WARNING", "ERROR"]:
             self.log_combo.addItem(lvl, lvl)
-        self.log_combo.setFixedWidth(140)
+        self.log_combo.setMinimumWidth(130)
+        self.log_combo.setAccessibleName("Select logging level")
         log_row.addWidget(self.log_combo)
         log_row.addStretch()
         adv_layout.addLayout(log_row)
@@ -161,11 +200,13 @@ class SettingsPage(QWidget):
 
         self.open_data_btn = QPushButton(self)
         self.open_data_btn.setProperty("class", "btnSecondary")
+        self.open_data_btn.setAccessibleName("Open application data directory")
         self.open_data_btn.clicked.connect(self._open_data_folder)
         storage_row.addWidget(self.open_data_btn)
 
         self.open_logs_btn = QPushButton(self)
         self.open_logs_btn.setProperty("class", "btnSecondary")
+        self.open_logs_btn.setAccessibleName("Open application logs directory")
         self.open_logs_btn.clicked.connect(self._open_logs_folder)
         storage_row.addWidget(self.open_logs_btn)
 
@@ -174,28 +215,38 @@ class SettingsPage(QWidget):
 
         layout.addWidget(adv_card)
 
-        # 5. Action Buttons & Feedback
+        # 5. Action Buttons & Feedback (Scroll-aware bottom container)
+        action_container = QVBoxLayout()
+        action_container.setSpacing(8)
+
         action_row = QHBoxLayout()
-        action_row.setSpacing(12)
+        action_row.setSpacing(10)
 
         self.save_btn = QPushButton(self)
         self.save_btn.setProperty("class", "btnPrimary")
+        self.save_btn.setAccessibleName("Save settings")
         self.save_btn.clicked.connect(self._save_settings)
         action_row.addWidget(self.save_btn)
 
         self.reset_btn = QPushButton(self)
         self.reset_btn.setProperty("class", "btnSecondary")
+        self.reset_btn.setAccessibleName("Reset settings to defaults")
         self.reset_btn.clicked.connect(self._reset_defaults)
         action_row.addWidget(self.reset_btn)
 
+        action_row.addStretch()
+        action_container.addLayout(action_row)
+
         self.status_label = QLabel("", self)
         self.status_label.setStyleSheet("color: #16a34a; font-weight: 600; font-size: 12px;")
-        action_row.addWidget(self.status_label)
+        self.status_label.setWordWrap(True)
+        action_container.addWidget(self.status_label)
 
-        action_row.addStretch()
-        layout.addLayout(action_row)
-
+        layout.addLayout(action_container)
         layout.addStretch()
+
+        self.scroll_area.setWidget(content_widget)
+        root_layout.addWidget(self.scroll_area)
 
         # Apply initial translations
         self.retranslate_ui()

@@ -1,11 +1,12 @@
 """Main window aggregating navigation rail, stacked page views, and status bar."""
 
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtGui import QCloseEvent, QResizeEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
     QMessageBox,
+    QSizePolicy,
     QStackedWidget,
     QStatusBar,
     QWidget,
@@ -92,8 +93,11 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self.stack, stretch=1)
         self.setCentralWidget(central_widget)
 
+        self._user_locked_compact = False
+
         # Connect navigation
         self.nav_rail.page_selected.connect(self._on_page_selected)
+        self.nav_rail.compact_toggled.connect(self._on_compact_toggled)
         self.download_page.navigate_to_queue.connect(lambda: self._switch_to_page(1))
         self.download_page.task_created.connect(self._on_task_created)
 
@@ -120,6 +124,9 @@ class MainWindow(QMainWindow):
         self.setStatusBar(status_bar)
 
         self.status_msg_label = QLabel(tr("status.ready"), self)
+        self.status_msg_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
         status_bar.addWidget(self.status_msg_label, stretch=1)
 
         # FFmpeg presence indicator
@@ -137,6 +144,39 @@ class MainWindow(QMainWindow):
         version_badge = QLabel(f"v{__version__}", self)
         status_bar.addPermanentWidget(version_badge)
 
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        """Adapt sidebar width and status indicators dynamically upon resize."""
+        super().resizeEvent(event)
+        w = self.width()
+        if w < 920:
+            if not self.nav_rail.is_compact:
+                self.nav_rail.set_compact_mode(True)
+        else:
+            if self.nav_rail.is_compact and not self._user_locked_compact:
+                self.nav_rail.set_compact_mode(False)
+        self._update_status_bar_responsiveness()
+
+    def _on_compact_toggled(self, is_compact: bool) -> None:
+        """Track user-explicit sidebar toggle preference."""
+        if self.width() >= 920 and is_compact:
+            self._user_locked_compact = True
+        elif not is_compact:
+            self._user_locked_compact = False
+
+    def _update_status_bar_responsiveness(self) -> None:
+        """Compact status bar permanent indicators on small screens."""
+        w = self.width()
+        has_ffmpeg = is_ffmpeg_available()
+        if w < 850:
+            self.ffmpeg_label.setText("FFmpeg ✓" if has_ffmpeg else "FFmpeg ✕")
+            self.theme_label.setVisible(w >= 780)
+        else:
+            ffmpeg_txt = (
+                tr("status.ffmpeg_available") if has_ffmpeg else tr("status.ffmpeg_missing")
+            )
+            self.ffmpeg_label.setText(ffmpeg_txt)
+            self.theme_label.setVisible(True)
+
     def retranslate_ui(self) -> None:
         """Update window titles, navigation and sub-pages to active language."""
         self.nav_rail.retranslate_ui()
@@ -146,12 +186,9 @@ class MainWindow(QMainWindow):
         self.settings_page.retranslate_ui()
         self.about_page.retranslate_ui()
 
-        has_ffmpeg = is_ffmpeg_available()
-        ffmpeg_txt = tr("status.ffmpeg_available") if has_ffmpeg else tr("status.ffmpeg_missing")
-        self.ffmpeg_label.setText(ffmpeg_txt)
-
         theme_name = self._settings_mgr.get().theme.capitalize()
         self.theme_label.setText(tr("status.theme", theme=theme_name))
+        self._update_status_bar_responsiveness()
 
         if self.status_msg_label.text() in ("Gereed", "Ready"):
             self.status_msg_label.setText(tr("status.ready"))

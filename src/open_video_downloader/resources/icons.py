@@ -126,5 +126,11 @@ def create_symbol_icon(symbol_type: str, size: int = 24, color: str = "#0284c7")
         # Stem
         painter.drawLine(QPointF(size * 0.5, size * 0.44), QPointF(size * 0.5, size * 0.68))
 
+    elif symbol_type == "menu":
+        # Hamburger menu icon (3 horizontal bars)
+        painter.drawLine(QPointF(size * 0.22, size * 0.30), QPointF(size * 0.78, size * 0.30))
+        painter.drawLine(QPointF(size * 0.22, size * 0.50), QPointF(size * 0.78, size * 0.50))
+        painter.drawLine(QPointF(size * 0.22, size * 0.70), QPointF(size * 0.78, size * 0.70))
+
     painter.end()
     return QIcon(pixmap)
